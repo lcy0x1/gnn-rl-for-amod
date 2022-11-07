@@ -26,22 +26,22 @@ class AMoD:
     def __init__(self, scenario: Scenario,
                  beta=0.2):  # updated to take scenario and beta (cost for rebalancing) as input
         # I changed it to deep copy so that the scenario input is not modified by env
-        self.scenario = deepcopy(scenario)
+        self.scenario = scenario
         # Road Graph: node - region, edge - connection of regions, node attr: 'accInit', edge attr: 'time'
-        self.G = scenario.get_graph()
+        self.graph = self.scenario.get_graph()
         self.time = 0  # current time
-        self.tf = scenario.get_final_time()  # final time
+        self.tf = self.scenario.get_final_time()  # final time
         self.demand = defaultdict(dict)  # demand
         self.depDemand = dict()
         self.arrDemand = dict()
-        self.region = self.G.node_list()  # set of regions
+        self.region = self.graph.node_list()  # set of regions
         for i in self.region:
             self.depDemand[i] = defaultdict(float)
             self.arrDemand[i] = defaultdict(float)
 
         self.price = defaultdict(dict)  # price
         # trip attribute (origin, destination, time of request, demand, price)
-        for i, j, t, d, p in scenario.get_random_demand():
+        for i, j, t, d, p in self.scenario.get_random_demand():
             self.demand[i, j][t] = d
             self.price[i, j][t] = p
             self.depDemand[i][t] += d
@@ -55,22 +55,22 @@ class AMoD:
         # number of vehicles with passengers, key: (i,j) - (origin, destination), t - time
         self.paxFlow = defaultdict(dict)
         self.edges = []  # set of rebalancing edges
-        self.nregion = self.G.size()  # number of regions
-        for i in self.G.get_nodes():
+        self.nregion = self.graph.size()  # number of regions
+        for i in self.graph.get_nodes():
             self.edges.append((i, i))
-            for e in self.G.get_edges()(i):
+            for e in self.graph.get_out_edges(i):
                 self.edges.append(e)
         self.edges = list(set(self.edges))
-        self.nedge = [len(self.G.get_edges()(n)) + 1 for n in self.region]  # number of edges leaving each region
-        for i, j in self.G.get_edges():
-            self.G.set_edge_time(i, j, self.scenario.get_reb_time(i, j, self.time))
+        self.nedge = [len(self.graph.get_out_edges(n)) + 1 for n in self.region]  # number of edges leaving each region
+        for i, j in self.graph.get_all_edges():
+            self.graph.set_edge_time(i, j, self.scenario.get_reb_time(i, j, self.time))
             self.rebFlow[i, j] = defaultdict(float)
         for i, j in self.demand:
             self.paxFlow[i, j] = defaultdict(float)
         for n in self.region:
-            self.acc[n][0] = self.G.get_init_acc(n)
+            self.acc[n][0] = self.graph.get_init_acc(n)
             self.dacc[n] = defaultdict(float)
-        self.beta = beta * scenario.get_step_time()
+        self.beta = beta * self.scenario.get_step_time()
         t = self.time
         self.servedDemand = defaultdict(dict)
         for i, j in self.demand:
@@ -174,7 +174,7 @@ class AMoD:
         # rebalancing
         for k in range(len(self.edges)):
             i, j = self.edges[k]
-            if (i, j) not in self.G.get_edges():
+            if (i, j) not in self.graph.get_all_edges():
                 continue
             # TODO: add check for actions respecting constraints? e.g. sum of all action[k]
             #  starting in "i" <= self.acc[i][t+1] (in addition to our agent action method)
@@ -201,8 +201,8 @@ class AMoD:
 
         self.time += 1
         self.obs = (self.acc, self.time, self.dacc, self.demand)  # use self.time to index the next time step
-        for i, j in self.G.get_edges():
-            self.G.set_edge_time(i, j, self.scenario.get_reb_time(i, j, self.time))
+        for i, j in self.graph.get_all_edges():
+            self.graph.set_edge_time(i, j, self.scenario.get_reb_time(i, j, self.time))
         done = (self.tf == t + 1)  # if the episode is completed
         return self.obs, self.reward, done, self.info
 
@@ -213,9 +213,9 @@ class AMoD:
         self.rebFlow = defaultdict(dict)
         self.paxFlow = defaultdict(dict)
         self.edges = []
-        for i in self.G.get_nodes():
+        for i in self.graph.get_nodes():
             self.edges.append((i, i))
-            for e in self.G.get_edges()(i):
+            for e in self.graph.get_out_edges(i):
                 self.edges.append(e)
         self.edges = list(set(self.edges))
         self.demand = defaultdict(dict)  # demand
@@ -231,11 +231,11 @@ class AMoD:
                 self.region_demand[i][t] += d
 
         self.time = 0
-        for i, j in self.G.get_edges():
+        for i, j in self.graph.get_all_edges():
             self.rebFlow[i, j] = defaultdict(float)
             self.paxFlow[i, j] = defaultdict(float)
-        for n in self.G.get_nodes():
-            self.acc[n][0] = self.G.get_init_acc(n)
+        for n in self.graph.get_nodes():
+            self.acc[n][0] = self.graph.get_init_acc(n)
             self.dacc[n] = defaultdict(float)
         t = self.time
         for i, j in self.demand:

@@ -12,8 +12,11 @@ class GraphWrapper:
     def get_nodes(self) -> rv.NodeView:
         return self._graph.nodes
 
-    def get_edges(self) -> rv.OutEdgeView:
+    def get_all_edges(self) -> rv.OutEdgeView:
         return self._graph.edges
+
+    def get_out_edges(self, i: Node) -> rv.OutEdgeView:
+        return self._graph.edges(i)
 
     def get_init_acc(self, n: Node) -> rv.NodeView:
         return self._graph.nodes[n]['accInit']

@@ -10,7 +10,7 @@ def solveRebFlow(env: AMoD, res_path, desiredAcc, cplexpath, platform='mac'):
     t = env.time
     accRLTuple = [(n, int(round(desiredAcc[n]))) for n in desiredAcc]
     accTuple = [(n, int(env.acc[n][t + 1])) for n in env.acc]
-    edgeAttr = [(i, j, env.G.get_edge_time(i, j)) for i, j in env.G.get_edges()]
+    edgeAttr = [(i, j, env.graph.get_edge_time(i, j)) for i, j in env.graph.get_all_edges()]
     modPath = os.getcwd().replace('\\', '/') + '/src/cplex_mod/'
     OPTPath = os.getcwd().replace('\\', '/') + '/saved_files/cplex_logs/rebalancing/' + res_path + '/'
     if not os.path.exists(OPTPath):
