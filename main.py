@@ -3,7 +3,8 @@ import argparse
 from tqdm import trange
 import numpy as np
 import torch
-from src.envs.amod_env import AMoD, Scenario
+from src.envs.amod_env import AMoD
+from src.scenario.json_raw_data import JsonRawDataScenario
 from src.algos.a2c_gnn import A2C
 from src.algos.reb_flow_solver import solveRebFlow
 from src.misc.utils import dictsum
@@ -160,7 +161,7 @@ if __name__ == '__main__':
     device = torch.device("cuda" if parsed_args.cuda else "cpu")
 
     # Define AMoD Simulator Environment
-    scenario = Scenario(json_file="data/scenario_nyc4x4.json", sd=parsed_args.seed,
+    scenario = JsonRawDataScenario(json_file="data/scenario_nyc4x4.json", sd=parsed_args.seed,
                                    demand_ratio=parsed_args.demand_ratio,
                                    json_hr=parsed_args.json_hr, json_tstep=parsed_args.json_tsetp)
     amod_env = AMoD(scenario, beta=parsed_args.beta)
