@@ -6,6 +6,7 @@ from typing import Final
 import networkx as nx
 import numpy as np
 
+from src.envs.graph_wrapper import GraphWrapper
 from src.envs.types import *
 
 
@@ -42,5 +43,3 @@ class Scenario:
 
     def get_reb_time(self, o: Node, d: Node, t: Time) -> Time:
         raise Exception("get_reb_time Not Implemented")
-
-

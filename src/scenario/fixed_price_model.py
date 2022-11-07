@@ -4,11 +4,13 @@ from copy import deepcopy
 import networkx as nx
 import numpy as np
 
+from src.scenario.scenario import Scenario
 
-class FixedPriceModelScenario:
-    def __init__(self, N1=2, N2=4, tf=60, sd=None, ninit=5, tripAttr=None, demand_input=None, demand_ratio=None,
-                 trip_length_preference=0.25, grid_travel_time=1, fix_price=True, alpha=0.2, json_file=None, json_hr=9,
-                 json_tstep=2, varying_time=False, json_regions=None):
+
+class FixedPriceModelScenario(Scenario):
+    def __init__(self, N1=2, N2=4, tf=60, sd=None, ninit=5, tripAttr=None, demand_input=None,
+                 demand_ratio=None, trip_length_preference=0.25, grid_travel_time=1, fix_price=True, alpha=0.2,
+                 json_file=None, json_hr=9, json_tstep=2, varying_time=False, json_regions=None):
         # trip_length_preference: positive - more shorter trips, negative - more longer trips
         # grid_travel_time: travel time between grids
         # demand_input： list - total demand out of each region,
@@ -17,9 +19,7 @@ class FixedPriceModelScenario:
         # demand_input will be converted to a variable static_demand to represent the demand between each pair of nodes
         # static_demand will then be sampled according to a Poisson distribution
         # alpha: parameter for uniform distribution of demand levels - [1-alpha, 1+alpha] * demand_input
-        self.sd = sd
-        if sd != None:
-            np.random.seed(self.sd)
+        super().__init__(json_tstep, tf=tf, seed=sd)
 
         self.varying_time = varying_time
         self.is_json = False
@@ -43,7 +43,7 @@ class FixedPriceModelScenario:
 
         for n in self.G.nodes:
             self.G.nodes[n]['accInit'] = int(ninit)
-        self.tf = tf
+            
         self.demand_ratio = defaultdict(list)
 
         if demand_ratio == None or type(demand_ratio) == list:
@@ -72,8 +72,6 @@ class FixedPriceModelScenario:
             self.tripAttr = deepcopy(tripAttr)
         else:
             self.tripAttr = self.get_random_demand()  # randomly generated demand
-
-
 
     def get_random_demand(self, reset=False):
         # generate demand and price
@@ -105,7 +103,7 @@ class FixedPriceModelScenario:
         elif type(self.demand_input) in [dict, defaultdict]:
             for i, j in self.edges:
                 self.static_demand[i, j] = self.demand_input[i, j] if (i, j) in self.demand_input else \
-                self.demand_input['default']
+                    self.demand_input['default']
 
                 self.static_demand[i, j] *= region_rand[i]
         else:
