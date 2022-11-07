@@ -1,9 +1,12 @@
 import json
 from collections import defaultdict
 from copy import deepcopy
+from typing import Final
 
 import networkx as nx
 import numpy as np
+
+from src.envs.types import *
 
 
 class Scenario:
