@@ -11,9 +11,8 @@ from src.scenario.scenario import Scenario
 
 
 class JsonRawDataScenario(Scenario):
-    def __init__(self, N1=2, N2=4, tf=60, sd=None, ninit=5, tripAttr=None, demand_input=None,
-                 demand_ratio=None, trip_length_preference=0.25, grid_travel_time=1, fix_price=True, alpha=0.2,
-                 json_file=None, json_hr=9, json_tstep=2, varying_time=False, json_regions=None):
+    def __init__(self, tf=60, sd=None, demand_ratio=None, json_file=None, json_hr=9, json_tstep=2, varying_time=False,
+                 json_regions=None):
         # trip_length_preference: positive - more shorter trips, negative - more longer trips
         # grid_travel_time: travel time between grids
         # demand_input： list - total demand out of each region,
@@ -32,13 +31,13 @@ class JsonRawDataScenario(Scenario):
         self.demand_input = defaultdict(dict)
         self.json_regions = json_regions
 
-        if json_regions != None:
-            self.G = nx.complete_graph(json_regions)
+        if json_regions is not None:
+            nregion = json_regions
         elif 'region' in data:
-            self.G = nx.complete_graph(data['region'])
+            nregion = data['region']
         else:
-            self.G = nx.complete_graph(self.N1 * self.N2)
-        self.G = self.G.to_directed()
+            nregion = self.N1 * self.N2
+        self.G = nx.complete_graph(nregion).to_directed()
         self.p = defaultdict(dict)
         self.alpha = 0
         self.demandTime = defaultdict(dict)
@@ -53,7 +52,7 @@ class JsonRawDataScenario(Scenario):
         for item in data["demand"]:
             t, o, d, v, tt, p = item["time_stamp"], item["origin"], item["destination"], item["demand"], item[
                 "travel_time"], item["price"]
-            if json_regions != None and (o not in json_regions or d not in json_regions):
+            if json_regions is not None and (o not in json_regions or d not in json_regions):
                 continue
             if (o, d) not in self.demand_input:
                 self.demand_input[o, d], self.p[o, d], self.demandTime[o, d] = defaultdict(float), defaultdict(
@@ -76,7 +75,7 @@ class JsonRawDataScenario(Scenario):
 
         for item in data["rebTime"]:
             hr, o, d, rt = item["time_stamp"], item["origin"], item["destination"], item["reb_time"]
-            if json_regions != None and (o not in json_regions or d not in json_regions):
+            if json_regions is not None and (o not in json_regions or d not in json_regions):
                 continue
             if varying_time:
                 t0 = int((hr * 60 - self.json_start) // json_tstep)
@@ -112,7 +111,7 @@ class JsonRawDataScenario(Scenario):
 
         demand = defaultdict(dict)
         price = defaultdict(dict)
-        tripAttr = []
+        trip_attr = []
 
         # converting demand_input to static_demand
         # skip this when resetting the demand
@@ -125,6 +124,6 @@ class JsonRawDataScenario(Scenario):
                 else:
                     demand[i, j][t] = 0
                     price[i, j][t] = 0
-                tripAttr.append((i, j, t, demand[i, j][t], price[i, j][t]))
+                trip_attr.append((i, j, t, demand[i, j][t], price[i, j][t]))
 
-        return tripAttr
+        return trip_attr

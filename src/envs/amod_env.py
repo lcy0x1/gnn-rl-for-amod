@@ -40,7 +40,8 @@ class AMoD:
             self.arrDemand[i] = defaultdict(float)
 
         self.price = defaultdict(dict)  # price
-        for i, j, t, d, p in scenario.get_random_demand():  # trip attribute (origin, destination, time of request, demand, price)
+        # trip attribute (origin, destination, time of request, demand, price)
+        for i, j, t, d, p in scenario.get_random_demand():
             self.demand[i, j][t] = d
             self.price[i, j][t] = p
             self.depDemand[i][t] += d
@@ -55,7 +56,7 @@ class AMoD:
         self.paxFlow = defaultdict(dict)
         self.edges = []  # set of rebalancing edges
         self.nregion = self.G.size()  # number of regions
-        for i in self.G.node_list():
+        for i in self.G.get_nodes():
             self.edges.append((i, i))
             for e in self.G.get_edges()(i):
                 self.edges.append(e)
@@ -85,7 +86,7 @@ class AMoD:
 
     def matching(self, cplexpath=None, path='', platform='linux'):
         t = self.time
-        demand_attr = [(i, j, self.demand[i, j][t], self.price[i, j][t]) for i, j in self.demand \
+        demand_attr = [(i, j, self.demand[i, j][t], self.price[i, j][t]) for i, j in self.demand
                        if t in self.demand[i, j] and self.demand[i, j][t] > 1e-3]
         acc_tuple = [(n, self.acc[n][t + 1]) for n in self.acc]
         mod_path = os.getcwd().replace('\\', '/') + '/src/cplex_mod/'
@@ -134,7 +135,9 @@ class AMoD:
         self.info.operating_cost = 0  # initialize operating cost
         self.info.revenue = 0
         self.info.rebalancing_cost = 0
-        if pax_action is None:  # default matching algorithm used if isMatching is True, matching method will need the information of self.acc[t+1], therefore this part cannot be put forward
+        # default matching algorithm used if isMatching is True,
+        # matching method will need the information of self.acc[t+1], therefore this part cannot be put forward
+        if pax_action is None:
             pax_action = self.matching(cplexpath=cplexpath, path=path, platform=platform)
         self.pax_action = pax_action
         # serving passengers
