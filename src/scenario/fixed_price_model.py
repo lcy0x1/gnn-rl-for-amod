@@ -4,10 +4,13 @@ from copy import deepcopy
 import networkx as nx
 import numpy as np
 
+from src.envs.graph_wrapper import GraphWrapper
+from src.envs.types import Node, Time
 from src.scenario.scenario import Scenario
 
 
 class FixedPriceModelScenario(Scenario):
+
     def __init__(self, N1=2, N2=4, tf=60, sd=None, ninit=5, tripAttr=None, demand_input=None,
                  demand_ratio=None, trip_length_preference=0.25, grid_travel_time=1, fix_price=True, alpha=0.2,
                  json_file=None, json_hr=9, json_tstep=2, varying_time=False, json_regions=None):
@@ -43,7 +46,7 @@ class FixedPriceModelScenario(Scenario):
 
         for n in self.G.nodes:
             self.G.nodes[n]['accInit'] = int(ninit)
-            
+
         self.demand_ratio = defaultdict(list)
 
         if demand_ratio == None or type(demand_ratio) == list:
@@ -72,6 +75,15 @@ class FixedPriceModelScenario(Scenario):
             self.tripAttr = deepcopy(tripAttr)
         else:
             self.tripAttr = self.get_random_demand()  # randomly generated demand
+
+    def get_demand_time(self, o: Node, d: Node, t: Time) -> Time:
+        return self.demandTime[o, d][t]
+
+    def get_reb_time(self, o: Node, d: Node, t: Time) -> Time:
+        return self.rebTime[o, d][t]
+
+    def get_graph(self) -> GraphWrapper:
+        return GraphWrapper(deepcopy(self.G))
 
     def get_random_demand(self, reset=False):
         # generate demand and price

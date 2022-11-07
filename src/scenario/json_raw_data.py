@@ -1,14 +1,19 @@
 import json
 from collections import defaultdict
+from copy import deepcopy
 
 import networkx as nx
 import numpy as np
 
+from src.envs.graph_wrapper import GraphWrapper
+from src.envs.types import *
+from src.scenario.scenario import Scenario
 
-class JsonRawDataScenario:
-    def __init__(self, N1=2, N2=4, tf=60, sd=None, ninit=5, tripAttr=None, demand_input=None, demand_ratio=None,
-                 trip_length_preference=0.25, grid_travel_time=1, fix_price=True, alpha=0.2, json_file=None, json_hr=9,
-                 json_tstep=2, varying_time=False, json_regions=None):
+
+class JsonRawDataScenario(Scenario):
+    def __init__(self, N1=2, N2=4, tf=60, sd=None, ninit=5, tripAttr=None, demand_input=None,
+                 demand_ratio=None, trip_length_preference=0.25, grid_travel_time=1, fix_price=True, alpha=0.2,
+                 json_file=None, json_hr=9, json_tstep=2, varying_time=False, json_regions=None):
         # trip_length_preference: positive - more shorter trips, negative - more longer trips
         # grid_travel_time: travel time between grids
         # demand_input： list - total demand out of each region,
@@ -17,14 +22,11 @@ class JsonRawDataScenario:
         # demand_input will be converted to a variable static_demand to represent the demand between each pair of nodes
         # static_demand will then be sampled according to a Poisson distribution
         # alpha: parameter for uniform distribution of demand levels - [1-alpha, 1+alpha] * demand_input
-        self.sd = sd
-        if sd != None:
-            np.random.seed(self.sd)
+        super().__init__(json_tstep, seed=sd, tf=tf)
         self.varying_time = varying_time
         self.is_json = True
         with open(json_file, "r") as file:
             data = json.load(file)
-        self.tstep = json_tstep
         self.N1 = data["nlat"]
         self.N2 = data["nlon"]
         self.demand_input = defaultdict(dict)
@@ -42,7 +44,6 @@ class JsonRawDataScenario:
         self.demandTime = defaultdict(dict)
         self.rebTime = defaultdict(dict)
         self.json_start = json_hr * 60
-        self.tf = tf
         self.edges = list(self.G.edges) + [(i, i) for i in self.G.nodes]
 
         for i, j in self.demand_input:
@@ -94,6 +95,15 @@ class JsonRawDataScenario:
                     self.G.nodes[n]['accInit'] = int(acc / len(self.G))
         self.tripAttr = self.get_random_demand()
 
+    def get_demand_time(self, o: Node, d: Node, t: Time) -> Time:
+        return self.demandTime[o, d][t]
+
+    def get_reb_time(self, o: Node, d: Node, t: Time) -> Time:
+        return self.rebTime[o, d][t]
+
+    def get_graph(self) -> GraphWrapper:
+        return GraphWrapper(deepcopy(self.G))
+
     def get_random_demand(self, reset=False):
         # generate demand and price
         # reset = True means that the function is called in the reset() method of AMoD enviroment,
@@ -107,7 +117,7 @@ class JsonRawDataScenario:
         # converting demand_input to static_demand
         # skip this when resetting the demand
         # if not reset:
-        for t in range(0, self.tf * 2):
+        for t in range(0, self.get_final_time() * 2):
             for i, j in self.edges:
                 if (i, j) in self.demand_input and t in self.demand_input[i, j]:
                     demand[i, j][t] = np.random.poisson(self.demand_input[i, j][t])

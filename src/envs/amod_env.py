@@ -23,29 +23,28 @@ from copy import deepcopy
 
 class AMoD:
     # initialization
-    def __init__(self, scenario, beta=0.2):  # updated to take scenario and beta (cost for rebalancing) as input
+    def __init__(self, scenario: Scenario,
+                 beta=0.2):  # updated to take scenario and beta (cost for rebalancing) as input
         # I changed it to deep copy so that the scenario input is not modified by env
         self.scenario = deepcopy(scenario)
         # Road Graph: node - region, edge - connection of regions, node attr: 'accInit', edge attr: 'time'
-        self.G = scenario.G
-        self.demandTime = self.scenario.demandTime
-        self.rebTime = self.scenario.rebTime
+        self.G = scenario.get_graph()
         self.time = 0  # current time
-        self.tf = scenario.tf  # final time
+        self.tf = scenario.get_final_time()  # final time
         self.demand = defaultdict(dict)  # demand
         self.depDemand = dict()
         self.arrDemand = dict()
-        self.region = list(self.G)  # set of regions
+        self.region = self.G.node_list()  # set of regions
         for i in self.region:
             self.depDemand[i] = defaultdict(float)
             self.arrDemand[i] = defaultdict(float)
 
         self.price = defaultdict(dict)  # price
-        for i, j, t, d, p in scenario.tripAttr:  # trip attribute (origin, destination, time of request, demand, price)
+        for i, j, t, d, p in scenario.get_random_demand():  # trip attribute (origin, destination, time of request, demand, price)
             self.demand[i, j][t] = d
             self.price[i, j][t] = p
             self.depDemand[i][t] += d
-            self.arrDemand[i][t + self.demandTime[i, j][t]] += d
+            self.arrDemand[i][t + self.scenario.get_demand_time(i, j, t)] += d
         # number of vehicles within each region, key: i - region, t - time
         self.acc = defaultdict(dict)
         # number of vehicles arriving at each region, key: i - region, t - time
@@ -55,22 +54,22 @@ class AMoD:
         # number of vehicles with passengers, key: (i,j) - (origin, destination), t - time
         self.paxFlow = defaultdict(dict)
         self.edges = []  # set of rebalancing edges
-        self.nregion = len(scenario.G)  # number of regions
-        for i in self.G:
+        self.nregion = self.G.size()  # number of regions
+        for i in self.G.node_list():
             self.edges.append((i, i))
-            for e in self.G.out_edges(i):
+            for e in self.G.get_edges()(i):
                 self.edges.append(e)
         self.edges = list(set(self.edges))
-        self.nedge = [len(self.G.out_edges(n)) + 1 for n in self.region]  # number of edges leaving each region
-        for i, j in self.G.edges:
-            self.G.edges[i, j]['time'] = self.rebTime[i, j][self.time]
+        self.nedge = [len(self.G.get_edges()(n)) + 1 for n in self.region]  # number of edges leaving each region
+        for i, j in self.G.get_edges():
+            self.G.set_edge_time(i, j, self.scenario.get_reb_time(i, j, self.time))
             self.rebFlow[i, j] = defaultdict(float)
         for i, j in self.demand:
             self.paxFlow[i, j] = defaultdict(float)
         for n in self.region:
-            self.acc[n][0] = self.G.nodes[n]['accInit']
+            self.acc[n][0] = self.G.get_init_acc(n)
             self.dacc[n] = defaultdict(float)
-        self.beta = beta * scenario.tstep
+        self.beta = beta * scenario.get_step_time()
         t = self.time
         self.servedDemand = defaultdict(dict)
         for i, j in self.demand:
@@ -81,7 +80,7 @@ class AMoD:
         # add the initialization of info here
         self.info = StepInfo()
         self.reward = 0
-        # observation: current vehicle distribution, time, future arrivals, demand        
+        # observation: current vehicle distribution, time, future arrivals, demand
         self.obs = (self.acc, self.time, self.dacc, self.demand)
 
     def matching(self, cplexpath=None, path='', platform='linux'):
@@ -148,12 +147,13 @@ class AMoD:
             assert pax_action[k] < self.acc[i][t + 1] + 1e-3
             self.pax_action[k] = min(self.acc[i][t + 1], pax_action[k])
             self.servedDemand[i, j][t] = self.pax_action[k]
-            self.paxFlow[i, j][t + self.demandTime[i, j][t]] = self.pax_action[k]
-            self.info.operating_cost += self.demandTime[i, j][t] * self.beta * self.pax_action[k]
+            demand_time = self.scenario.get_demand_time(i, j, t)
+            self.paxFlow[i, j][t + demand_time] = self.pax_action[k]
+            self.info.operating_cost += demand_time * self.beta * self.pax_action[k]
             self.acc[i][t + 1] -= self.pax_action[k]
             self.info.served_demand += self.servedDemand[i, j][t]
-            self.dacc[j][t + self.demandTime[i, j][t]] += self.paxFlow[i, j][t + self.demandTime[i, j][t]]
-            self.reward += self.pax_action[k] * (self.price[i, j][t] - self.demandTime[i, j][t] * self.beta)
+            self.dacc[j][t + demand_time] += self.paxFlow[i, j][t + demand_time]
+            self.reward += self.pax_action[k] * (self.price[i, j][t] - demand_time * self.beta)
             self.info.revenue += self.pax_action[k] * (self.price[i, j][t])
 
         self.obs = (self.acc, self.time, self.dacc,
@@ -171,18 +171,19 @@ class AMoD:
         # rebalancing
         for k in range(len(self.edges)):
             i, j = self.edges[k]
-            if (i, j) not in self.G.edges:
+            if (i, j) not in self.G.get_edges():
                 continue
             # TODO: add check for actions respecting constraints? e.g. sum of all action[k]
             #  starting in "i" <= self.acc[i][t+1] (in addition to our agent action method)
             # update the number of vehicles
             self.reb_action[k] = min(self.acc[i][t + 1], reb_action[k])
-            self.rebFlow[i, j][t + self.rebTime[i, j][t]] = self.reb_action[k]
+            reb_time = self.scenario.get_reb_time(i, j, t)
+            self.rebFlow[i, j][t + reb_time] = self.reb_action[k]
             self.acc[i][t + 1] -= self.reb_action[k]
-            self.dacc[j][t + self.rebTime[i, j][t]] += self.rebFlow[i, j][t + self.rebTime[i, j][t]]
-            self.info.rebalancing_cost += self.rebTime[i, j][t] * self.beta * self.reb_action[k]
-            self.info.operating_cost += self.rebTime[i, j][t] * self.beta * self.reb_action[k]
-            self.reward -= self.rebTime[i, j][t] * self.beta * self.reb_action[k]
+            self.dacc[j][t + reb_time] += self.rebFlow[i, j][t + reb_time]
+            self.info.rebalancing_cost += reb_time * self.beta * self.reb_action[k]
+            self.info.operating_cost += reb_time * self.beta * self.reb_action[k]
+            self.reward -= reb_time * self.beta * self.reb_action[k]
         # arrival for the next time step, executed in the last state of a time step
         # this makes the code slightly different from the previous version,
         # where the following codes are executed between matching and rebalancing
@@ -197,8 +198,8 @@ class AMoD:
 
         self.time += 1
         self.obs = (self.acc, self.time, self.dacc, self.demand)  # use self.time to index the next time step
-        for i, j in self.G.edges:
-            self.G.edges[i, j]['time'] = self.rebTime[i, j][self.time]
+        for i, j in self.G.get_edges():
+            self.G.set_edge_time(i, j, self.scenario.get_reb_time(i, j, self.time))
         done = (self.tf == t + 1)  # if the episode is completed
         return self.obs, self.reward, done, self.info
 
@@ -209,9 +210,9 @@ class AMoD:
         self.rebFlow = defaultdict(dict)
         self.paxFlow = defaultdict(dict)
         self.edges = []
-        for i in self.G:
+        for i in self.G.get_nodes():
             self.edges.append((i, i))
-            for e in self.G.out_edges(i):
+            for e in self.G.get_edges()(i):
                 self.edges.append(e)
         self.edges = list(set(self.edges))
         self.demand = defaultdict(dict)  # demand
@@ -227,11 +228,11 @@ class AMoD:
                 self.region_demand[i][t] += d
 
         self.time = 0
-        for i, j in self.G.edges:
+        for i, j in self.G.get_edges():
             self.rebFlow[i, j] = defaultdict(float)
             self.paxFlow[i, j] = defaultdict(float)
-        for n in self.G:
-            self.acc[n][0] = self.G.nodes[n]['accInit']
+        for n in self.G.get_nodes():
+            self.acc[n][0] = self.G.get_init_acc(n)
             self.dacc[n] = defaultdict(float)
         t = self.time
         for i, j in self.demand:
