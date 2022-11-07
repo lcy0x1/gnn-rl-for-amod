@@ -4,7 +4,7 @@ from collections import defaultdict
 from src.misc.utils import mat2str
 
 
-def solveRebFlow(env, res_path, desiredAcc, CPLEXPATH, platform='mac'):
+def solveRebFlow(env, res_path, desiredAcc, cplexpath, platform='mac'):
     t = env.time
     accRLTuple = [(n, int(round(desiredAcc[n]))) for n in desiredAcc]
     accTuple = [(n, int(env.acc[n][t + 1])) for n in env.acc]
@@ -21,16 +21,16 @@ def solveRebFlow(env, res_path, desiredAcc, CPLEXPATH, platform='mac'):
         file.write('accInitTuple=' + mat2str(accTuple) + ';\r\n')
         file.write('accRLTuple=' + mat2str(accRLTuple) + ';\r\n')
     modfile = modPath + 'minRebDistRebOnly.mod'
-    if CPLEXPATH is None:
-        CPLEXPATH = "/opt/ibm/ILOG/CPLEX_Studio128/opl/bin/x86-64_linux/"
+    if cplexpath is None:
+        cplexpath = "/opt/ibm/ILOG/CPLEX_Studio128/opl/bin/x86-64_linux/"
     my_env = os.environ.copy()
     if platform == 'mac':
-        my_env["DYLD_LIBRARY_PATH"] = CPLEXPATH
+        my_env["DYLD_LIBRARY_PATH"] = cplexpath
     else:
-        my_env["LD_LIBRARY_PATH"] = CPLEXPATH
+        my_env["LD_LIBRARY_PATH"] = cplexpath
     out_file = OPTPath + f'out_{t}.dat'
     with open(out_file, 'w') as output_f:
-        subprocess.check_call([CPLEXPATH + "oplrun", modfile, datafile], stdout=output_f, env=my_env)
+        subprocess.check_call([cplexpath + "oplrun", modfile, datafile], stdout=output_f, env=my_env)
     output_f.close()
 
     # 3. collect results from file

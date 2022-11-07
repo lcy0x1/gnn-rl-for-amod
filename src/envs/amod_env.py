@@ -24,9 +24,10 @@ from copy import deepcopy
 class AMoD:
     # initialization
     def __init__(self, scenario, beta=0.2):  # updated to take scenario and beta (cost for rebalancing) as input
-        self.scenario = deepcopy(
-            scenario)  # I changed it to deep copy so that the scenario input is not modified by env
-        self.G = scenario.G  # Road Graph: node - region, edge - connection of regions, node attr: 'accInit', edge attr: 'time'
+        # I changed it to deep copy so that the scenario input is not modified by env
+        self.scenario = deepcopy(scenario)
+        # Road Graph: node - region, edge - connection of regions, node attr: 'accInit', edge attr: 'time'
+        self.G = scenario.G
         self.demandTime = self.scenario.demandTime
         self.rebTime = self.scenario.rebTime
         self.time = 0  # current time
@@ -45,11 +46,14 @@ class AMoD:
             self.price[i, j][t] = p
             self.depDemand[i][t] += d
             self.arrDemand[i][t + self.demandTime[i, j][t]] += d
-        self.acc = defaultdict(dict)  # number of vehicles within each region, key: i - region, t - time
-        self.dacc = defaultdict(dict)  # number of vehicles arriving at each region, key: i - region, t - time
-        self.rebFlow = defaultdict(dict)  # number of rebalancing vehicles, key: (i,j) - (origin, destination), t - time
-        self.paxFlow = defaultdict(
-            dict)  # number of vehicles with passengers, key: (i,j) - (origin, destination), t - time
+        # number of vehicles within each region, key: i - region, t - time
+        self.acc = defaultdict(dict)
+        # number of vehicles arriving at each region, key: i - region, t - time
+        self.dacc = defaultdict(dict)
+        # number of rebalancing vehicles, key: (i,j) - (origin, destination), t - time
+        self.rebFlow = defaultdict(dict)
+        # number of vehicles with passengers, key: (i,j) - (origin, destination), t - time
+        self.paxFlow = defaultdict(dict)
         self.edges = []  # set of rebalancing edges
         self.nregion = len(scenario.G)  # number of regions
         for i in self.G:
@@ -83,7 +87,7 @@ class AMoD:
     def matching(self, cplexpath=None, path='', platform='linux'):
         t = self.time
         demand_attr = [(i, j, self.demand[i, j][t], self.price[i, j][t]) for i, j in self.demand \
-                      if t in self.demand[i, j] and self.demand[i, j][t] > 1e-3]
+                       if t in self.demand[i, j] and self.demand[i, j][t] > 1e-3]
         acc_tuple = [(n, self.acc[n][t + 1]) for n in self.acc]
         mod_path = os.getcwd().replace('\\', '/') + '/src/cplex_mod/'
         matching_path = os.getcwd().replace('\\', '/') + '/saved_files/cplex_logs/matching/' + path + '/'
@@ -160,14 +164,17 @@ class AMoD:
     # reb step
     def reb_step(self, reb_action):
         t = self.time
-        self.reward = 0  # reward is calculated from before this to the next rebalancing, we may also have two rewards, one for pax matching and one for rebalancing
+        # reward is calculated from before this to the next rebalancing,
+        # we may also have two rewards, one for pax matching and one for rebalancing
+        self.reward = 0
         self.reb_action = reb_action
         # rebalancing
         for k in range(len(self.edges)):
             i, j = self.edges[k]
             if (i, j) not in self.G.edges:
                 continue
-            # TODO: add check for actions respecting constraints? e.g. sum of all action[k] starting in "i" <= self.acc[i][t+1] (in addition to our agent action method)
+            # TODO: add check for actions respecting constraints? e.g. sum of all action[k]
+            #  starting in "i" <= self.acc[i][t+1] (in addition to our agent action method)
             # update the number of vehicles
             self.reb_action[k] = min(self.acc[i][t + 1], reb_action[k])
             self.rebFlow[i, j][t + self.rebTime[i, j][t]] = self.reb_action[k]
@@ -177,14 +184,16 @@ class AMoD:
             self.info.operating_cost += self.rebTime[i, j][t] * self.beta * self.reb_action[k]
             self.reward -= self.rebTime[i, j][t] * self.beta * self.reb_action[k]
         # arrival for the next time step, executed in the last state of a time step
-        # this makes the code slightly different from the previous version, where the following codes are executed between matching and rebalancing        
+        # this makes the code slightly different from the previous version,
+        # where the following codes are executed between matching and rebalancing
         for k in range(len(self.edges)):
             i, j = self.edges[k]
             if (i, j) in self.rebFlow and t in self.rebFlow[i, j]:
                 self.acc[j][t + 1] += self.rebFlow[i, j][t]
             if (i, j) in self.paxFlow and t in self.paxFlow[i, j]:
-                self.acc[j][t + 1] += self.paxFlow[i, j][
-                    t]  # this means that after pax arrived, vehicles can only be rebalanced in the next time step, let me know if you have different opinion
+                # this means that after pax arrived, vehicles can only be rebalanced
+                # in the next time step, let me know if you have different opinion
+                self.acc[j][t + 1] += self.paxFlow[i, j][t]
 
         self.time += 1
         self.obs = (self.acc, self.time, self.dacc, self.demand)  # use self.time to index the next time step
