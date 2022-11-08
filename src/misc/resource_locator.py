@@ -3,7 +3,7 @@ class ResourceLocator:
     def __init__(self, directory, suffix):
         self.directory = directory
         self.env_json_file = "data/scenario_nyc4x4.json"
-        self.cplex_log_folder = 'scenario_nyc4'
+        self.cplex_log_folder = f'scenario_nyc4_{suffix}'
         self.ckpt_path = 'ckpt/nyc4'
         self.rllog_path = 'rl_logs/nyc4'
         self.target_pth = f'a2c_gnn_test_{suffix}.pth'

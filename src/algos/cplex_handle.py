@@ -12,7 +12,8 @@ def check(path: str):
 
 class CPlexHandle:
 
-    def __init__(self, res_path: str, cplexpath="/opt/ibm/ILOG/CPLEX_Studio128/opl/bin/x86-64_linux/",
+    def __init__(self, res_path: str,
+                 cplexpath="/opt/ibm/ILOG/CPLEX_Studio128/opl/bin/x86-64_linux/",
                  platform='linux'):
         self.cplex_path = cplexpath
         self.platform = platform

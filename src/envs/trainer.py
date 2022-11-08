@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from tqdm import trange
 
-from src.algos.a2c_gnn import A2C
+from src.algos.a2c_gnn import A2C, GNNParser
 from src.algos.cplex_handle import CPlexHandle
 from src.envs.amod_env import AMoD
 from src.misc.info import LogInfo
@@ -21,7 +21,11 @@ class Trainer:
         self.env = AMoD(self.scenario, beta=args.beta)
         args.cuda = not args.no_cuda and torch.cuda.is_available()
         device = torch.device("cuda" if args.cuda else "cpu")
-        self.model = A2C(env=self.env, input_size=21).to(device)
+        self.model = A2C(env=self.env,
+                         parser=GNNParser(self.env,
+                                          vehicle_forecast=args.vehicle_forecast,
+                                          demand_forecast=args.demand_forecast
+                                          )).to(device)
         self.cplex = CPlexHandle(locator.cplex_log_folder, args.cplexpath, platform=args.platform)
         self.log = LogInfo()
         self.max_episodes = args.max_episodes

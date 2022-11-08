@@ -37,16 +37,16 @@ args.log_interval = 10
 ############## PARSER ###################
 #########################################
 
-class GNNParser():
+class GNNParser:
     """
     Parser converting raw environment observations to agent inputs (s_t).
     """
 
-    def __init__(self, env: AMoD, vehicle_forcast=10, demand_forcast=10, grid_h=4, grid_w=4, scale_factor=0.01):
+    def __init__(self, env: AMoD, vehicle_forecast=10, demand_forecast=10, grid_h=4, grid_w=4, scale_factor=0.01):
         super().__init__()
         self.env = env
-        self.vehicle_forcast = vehicle_forcast
-        self.demand_forcast = demand_forcast
+        self.vehicle_forecast = vehicle_forecast
+        self.demand_forecast = demand_forecast
         self.s = scale_factor
         self.grid_h = grid_h
         self.grid_w = grid_w
@@ -59,17 +59,20 @@ class GNNParser():
             (
                 torch.tensor([self.env.data.acc[n][time + 1] * self.s for n in range(size)]).view(1, 1, size).float(),
                 torch.tensor([[(self.env.data.acc[n][time + 1] + self.env.data.dacc[n][t]) * self.s
-                               for n in range(size)] for t in range(time + 1, time + self.vehicle_forcast + 1)])
-                    .view(1, self.vehicle_forcast, size).float(),
+                               for n in range(size)] for t in range(time + 1, time + self.vehicle_forecast + 1)])
+                    .view(1, self.vehicle_forecast, size).float(),
                 torch.tensor([[sum([(self.env.get_demand_input(i, j, t)) *
                                     (self.env.data.price[i, j][t]) * self.s
                                     for j in range(size)]) for i in range(size)]
-                              for t in range(time + 1, time + self.demand_forcast + 1)])
-                    .view(1, self.demand_forcast, size).float()
-            ), dim=1).squeeze(0).view(1 + self.vehicle_forcast + self.demand_forcast, size).T
+                              for t in range(time + 1, time + self.demand_forecast + 1)])
+                    .view(1, self.demand_forecast, size).float()
+            ), dim=1).squeeze(0).view(1 + self.vehicle_forecast + self.demand_forecast, size).T
         edge_index, pos_coord = grid(height=self.grid_h, width=self.grid_w)
         data = Data(x, edge_index)
         return data
+
+    def width(self):
+        return 1 + self.vehicle_forecast + self.demand_forecast
 
 
 #########################################
@@ -80,13 +83,13 @@ class GNNActor(nn.Module):
     Actor pi(a_t | s_t) parametrizing the concentration parameters of a Dirichlet Policy.
     """
 
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, mid_channels):
         super().__init__()
 
         self.conv1 = GCNConv(in_channels, in_channels)
-        self.lin1 = nn.Linear(in_channels, 32)
-        self.lin2 = nn.Linear(32, 32)
-        self.lin3 = nn.Linear(32, 1)
+        self.lin1 = nn.Linear(in_channels, mid_channels)
+        self.lin2 = nn.Linear(mid_channels, mid_channels)
+        self.lin3 = nn.Linear(mid_channels, 1)
 
     def forward(self, data):
         out = F.relu(self.conv1(data.x, data.edge_index))
@@ -106,13 +109,13 @@ class GNNCritic(nn.Module):
     Critic parametrizing the value function estimator V(s_t).
     """
 
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, mid_channels):
         super().__init__()
 
         self.conv1 = GCNConv(in_channels, in_channels)
-        self.lin1 = nn.Linear(in_channels, 32)
-        self.lin2 = nn.Linear(32, 32)
-        self.lin3 = nn.Linear(32, 1)
+        self.lin1 = nn.Linear(in_channels, mid_channels)
+        self.lin2 = nn.Linear(mid_channels, mid_channels)
+        self.lin3 = nn.Linear(mid_channels, 1)
 
     def forward(self, data):
         out = F.relu(self.conv1(data.x, data.edge_index))
@@ -133,17 +136,19 @@ class A2C(nn.Module):
     Advantage Actor Critic algorithm for the AMoD control problem. 
     """
 
-    def __init__(self, env, input_size, eps=np.finfo(np.float32).eps.item(), device=torch.device("cpu")):
+    def __init__(self, env, parser: GNNParser, hidden_size=32,
+                 eps=np.finfo(np.float32).eps.item(),
+                 device=torch.device("cpu")):
         super(A2C, self).__init__()
         self.env = env
         self.eps = eps
-        self.input_size = input_size
-        self.hidden_size = input_size
+        self.input_size = parser.width()
+        self.hidden_size = hidden_size
         self.device = device
 
         self.actor = GNNActor(self.input_size, self.hidden_size)
         self.critic = GNNCritic(self.input_size, self.hidden_size)
-        self.obs_parser = GNNParser(self.env)
+        self.obs_parser = parser
 
         self.optimizers = self.configure_optimizers()
 

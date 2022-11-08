@@ -49,9 +49,17 @@ if __name__ == '__main__':
     parser.add_argument('--no-cuda', type=bool, default=True,
                         help='disables CUDA training')
 
+    # Network parameters
+    parser.add_argument('--vehicle_forecast', type=int, default=10,
+                        help='time steps for the network to preview vehicle availability')
+    parser.add_argument('--demand_forecast', type=int, default=10,
+                        help='time steps for the network to preview demand')
+    parser.add_argument('--instance_suffix', type=str, default='default',
+                        help='name for instance, helps to separate data')
+
     args = parser.parse_args()
 
-    locator = ResourceLocator(args.directory, 'default')
+    locator = ResourceLocator(args.directory, args.instance_suffix)
     if args.view:
         view(locator)
     else:
