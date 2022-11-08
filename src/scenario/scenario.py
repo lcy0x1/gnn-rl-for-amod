@@ -45,3 +45,9 @@ class Scenario:
         Time to move empty vehicle from Node o (origin) to Node d (destination)
         """
         raise Exception("get_reb_time Not Implemented")
+
+    def get_demand_input(self, o: Node, d: Node, t: Time) -> float:
+        """
+        Estimated demand from Node o (origin) to Node d (destination)
+        """
+        raise Exception("get_demand_input Not Implemented")

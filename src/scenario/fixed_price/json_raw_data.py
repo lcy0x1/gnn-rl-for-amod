@@ -40,14 +40,10 @@ class JsonRawDataScenario(Scenario):
         self.G = nx.complete_graph(nregion).to_directed()
         self.p = defaultdict(dict)
         self.alpha = 0
-        self.demandTime = defaultdict(dict)
+        self.demand_time = defaultdict(dict)
         self.rebTime = defaultdict(dict)
         self.json_start = json_hr * 60
         self.edges = list(self.G.edges) + [(i, i) for i in self.G.nodes]
-
-        for i, j in self.demand_input:
-            self.demandTime[i, j] = defaultdict(int)
-            self.rebTime[i, j] = 1
 
         for item in data["demand"]:
             t, o, d, v, tt, p = item["time_stamp"], item["origin"], item["destination"], item["demand"], item[
@@ -55,23 +51,23 @@ class JsonRawDataScenario(Scenario):
             if json_regions is not None and (o not in json_regions or d not in json_regions):
                 continue
             if (o, d) not in self.demand_input:
-                self.demand_input[o, d], self.p[o, d], self.demandTime[o, d] = defaultdict(float), defaultdict(
+                self.demand_input[o, d], self.p[o, d], self.demand_time[o, d] = defaultdict(float), defaultdict(
                     float), defaultdict(float)
 
             self.demand_input[o, d][(t - self.json_start) // json_tstep] += v * demand_ratio
             self.p[o, d][(t - self.json_start) // json_tstep] += p * v * demand_ratio
-            self.demandTime[o, d][(t - self.json_start) // json_tstep] += tt * v * demand_ratio / json_tstep
+            self.demand_time[o, d][(t - self.json_start) // json_tstep] += tt * v * demand_ratio / json_tstep
 
         for o, d in self.edges:
             for t in range(0, tf * 2):
                 if t in self.demand_input[o, d]:
                     self.p[o, d][t] /= self.demand_input[o, d][t]
-                    self.demandTime[o, d][t] /= self.demand_input[o, d][t]
-                    self.demandTime[o, d][t] = max(int(round(self.demandTime[o, d][t])), 1)
+                    self.demand_time[o, d][t] /= self.demand_input[o, d][t]
+                    self.demand_time[o, d][t] = max(int(round(self.demand_time[o, d][t])), 1)
                 else:
                     self.demand_input[o, d][t] = 0
                     self.p[o, d][t] = 0
-                    self.demandTime[o, d][t] = 0
+                    self.demand_time[o, d][t] = 0
 
         for item in data["rebTime"]:
             hr, o, d, rt = item["time_stamp"], item["origin"], item["destination"], item["reb_time"]
@@ -95,10 +91,13 @@ class JsonRawDataScenario(Scenario):
         self.tripAttr = self.get_random_demand()
 
     def get_demand_time(self, o: Node, d: Node, t: Time) -> Time:
-        return self.demandTime[o, d][t]
+        return self.demand_time[o, d][t]
 
     def get_reb_time(self, o: Node, d: Node, t: Time) -> Time:
         return self.rebTime[o, d][t]
+
+    def get_demand_input(self, o: Node, d: Node, t: Time) -> float:
+        return self.demand_input[o, d][t]
 
     def get_graph(self) -> GraphWrapper:
         return GraphWrapper(deepcopy(self.G))

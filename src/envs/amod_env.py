@@ -14,8 +14,45 @@ This file contains the specifications for the AMoD system simulator. In particul
 from collections import defaultdict
 
 from src.algos.cplex_handle import CPlexHandle
+from src.misc.graph_wrapper import GraphWrapper
+from src.misc.types import Time
 from src.scenario.scenario import Scenario
 from src.misc.info import StepInfo
+
+
+class TimelyData:
+
+    def __init__(self, time: Time, scenario: Scenario, graph: GraphWrapper):
+        self._scenario = scenario
+        self._graph = graph
+
+        # number of vehicles within each region, key: i - region, t - time
+        self.acc = defaultdict(dict)
+        # number of vehicles arriving at each region, key: i - region, t - time
+        self.dacc = defaultdict(dict)
+        # number of rebalancing vehicles, key: (i,j) - (origin, destination), t - time
+        self.rebFlow = defaultdict(dict)
+        # number of vehicles with passengers, key: (i,j) - (origin, destination), t - time
+        self.paxFlow = defaultdict(dict)
+        self.servedDemand = defaultdict(dict)
+
+        self.demand = defaultdict(dict)  # demand
+        self.price = defaultdict(dict)  # price
+        # trip attribute (origin, destination, time of request, demand, price)
+
+        self.reset(scenario.get_random_demand())
+
+    def reset(self, trip_attr):
+        for i, j in self._graph.get_all_edges():
+            self.rebFlow[i, j] = defaultdict(float)
+            self.paxFlow[i, j] = defaultdict(float)
+            self.servedDemand[i, j] = defaultdict(float)
+        for n in self._graph.get_nodes():
+            self.acc[n][0] = self._graph.get_init_acc(n)
+            self.dacc[n] = defaultdict(float)
+        for i, j, t, d, p in trip_attr:  # trip attribute (origin, destination, time of request, demand, price)
+            self.demand[i, j][t] = d
+            self.price[i, j][t] = p
 
 
 class AMoD:
@@ -29,54 +66,31 @@ class AMoD:
         self.time = 0  # current time
         self.tf = self.scenario.get_final_time()  # final time
         self.region = self.graph.node_list()  # set of regions
-
-        # number of vehicles within each region, key: i - region, t - time
-        self.acc = defaultdict(dict)
-        # number of vehicles arriving at each region, key: i - region, t - time
-        self.dacc = defaultdict(dict)
-        # number of rebalancing vehicles, key: (i,j) - (origin, destination), t - time
-        self.rebFlow = defaultdict(dict)
-        # number of vehicles with passengers, key: (i,j) - (origin, destination), t - time
-        self.paxFlow = defaultdict(dict)
-        self.servedDemand = defaultdict(dict)
-
-        self.edges = []  # set of rebalancing edges
         self.nregion = self.graph.size()  # number of regions
         self.beta = beta * self.scenario.get_step_time()
+
+        self.edges = []  # set of rebalancing edges
         for i in self.graph.get_nodes():
             self.edges.append((i, i))
             for e in self.graph.get_out_edges(i):
                 self.edges.append(e)
         self.edges = list(set(self.edges))
         self.nedge = [len(self.graph.get_out_edges(n)) + 1 for n in self.region]  # number of edges leaving each region
-        for i, j in self.graph.get_all_edges():
-            self.graph.set_edge_time(i, j, self.scenario.get_reb_time(i, j, self.time))
-            self.rebFlow[i, j] = defaultdict(float)
-            self.paxFlow[i, j] = defaultdict(float)
-            self.servedDemand[i, j] = defaultdict(float)
-        for n in self.region:
-            self.acc[n][0] = self.graph.get_init_acc(n)
-            self.dacc[n] = defaultdict(float)
+
+        self.data = TimelyData(self.time, self.scenario, self.graph)
 
         # add the initialization of info here
         self.info = StepInfo()
         self.reward = 0
 
-        self.demand = defaultdict(dict)  # demand
-        self.price = defaultdict(dict)  # price
-        # trip attribute (origin, destination, time of request, demand, price)
-        for i, j, t, d, p in self.scenario.get_random_demand():
-            self.demand[i, j][t] = d
-            self.price[i, j][t] = p
-
         # observation: current vehicle distribution, time, future arrivals, demand
-        self.obs = (self.acc, self.time, self.dacc, self.demand)
+        self.obs = (self.data.acc, self.time, self.data.dacc, self.data.demand)
 
     def matching(self, cplex: CPlexHandle):
         t = self.time
-        demand_attr = [(i, j, self.demand[i, j][t], self.price[i, j][t]) for i, j in self.demand
-                       if t in self.demand[i, j] and self.demand[i, j][t] > 1e-3]
-        acc_tuple = [(n, self.acc[n][t + 1]) for n in self.acc]
+        demand_attr = [(i, j, self.data.demand[i, j][t], self.data.price[i, j][t]) for i, j in self.data.demand
+                       if t in self.data.demand[i, j] and self.data.demand[i, j][t] > 1e-3]
+        acc_tuple = [(n, self.data.acc[n][t + 1]) for n in self.data.acc]
         flow = cplex.solve_mat_flow(self.time, demand_attr, acc_tuple)
         pax_action = [flow[i, j] if (i, j) in flow else 0 for i, j in self.edges]
         return pax_action
@@ -86,7 +100,7 @@ class AMoD:
         t = self.time
         self.reward = 0
         for i in self.region:
-            self.acc[i][t + 1] = self.acc[i][t]
+            self.data.acc[i][t + 1] = self.data.acc[i][t]
         self.info.reset()
         # default matching algorithm used if isMatching is True,
         # matching method will need the information of self.acc[t+1], therefore this part cannot be put forward
@@ -95,25 +109,25 @@ class AMoD:
         # serving passengers
         for k in range(len(self.edges)):
             i, j = self.edges[k]
-            if (i, j) not in self.demand or t not in self.demand[i, j] or pax_action[k] < 1e-3:
+            if (i, j) not in self.data.demand or t not in self.data.demand[i, j] or pax_action[k] < 1e-3:
                 continue
             # I moved the min operator above, since we want paxFlow to be consistent with paxAction
-            assert pax_action[k] < self.acc[i][t + 1] + 1e-3
-            pax_action[k] = min(self.acc[i][t + 1], pax_action[k])
+            assert pax_action[k] < self.data.acc[i][t + 1] + 1e-3
+            pax_action[k] = min(self.data.acc[i][t + 1], pax_action[k])
             demand_time = self.scenario.get_demand_time(i, j, t)
 
-            self.servedDemand[i, j][t] = pax_action[k]
-            self.paxFlow[i, j][t + demand_time] = pax_action[k]
-            self.acc[i][t + 1] -= pax_action[k]
-            self.dacc[j][t + demand_time] += self.paxFlow[i, j][t + demand_time]
+            self.data.servedDemand[i, j][t] = pax_action[k]
+            self.data.paxFlow[i, j][t + demand_time] = pax_action[k]
+            self.data.acc[i][t + 1] -= pax_action[k]
+            self.data.dacc[j][t + demand_time] += pax_action[k]
 
-            self.reward += pax_action[k] * (self.price[i, j][t] - demand_time * self.beta)
+            self.reward += pax_action[k] * (self.data.price[i, j][t] - demand_time * self.beta)
             self.info.operating_cost += demand_time * self.beta * pax_action[k]
-            self.info.served_demand += self.servedDemand[i, j][t]
-            self.info.revenue += pax_action[k] * (self.price[i, j][t])
+            self.info.served_demand += self.data.servedDemand[i, j][t]
+            self.info.revenue += pax_action[k] * (self.data.price[i, j][t])
 
         # for acc, the time index would be t+1, but for demand, the time index would be t
-        self.obs = (self.acc, self.time, self.dacc, self.demand)
+        self.obs = (self.data.acc, self.time, self.data.dacc, self.data.demand)
         done = False  # if passenger matching is executed first
         return self.obs, max(0, self.reward), done, self.info
 
@@ -131,12 +145,12 @@ class AMoD:
             # TODO: add check for actions respecting constraints? e.g. sum of all action[k]
             #  starting in "i" <= self.acc[i][t+1] (in addition to our agent action method)
             # update the number of vehicles
-            reb_action[k] = min(self.acc[i][t + 1], reb_action[k])
+            reb_action[k] = min(self.data.acc[i][t + 1], reb_action[k])
             reb_time = self.scenario.get_reb_time(i, j, t)
 
-            self.rebFlow[i, j][t + reb_time] = reb_action[k]
-            self.acc[i][t + 1] -= reb_action[k]
-            self.dacc[j][t + reb_time] += self.rebFlow[i, j][t + reb_time]
+            self.data.rebFlow[i, j][t + reb_time] = reb_action[k]
+            self.data.acc[i][t + 1] -= reb_action[k]
+            self.data.dacc[j][t + reb_time] += reb_action[k]
 
             cost = reb_time * self.beta * reb_action[k]
             self.info.reb_cost += cost
@@ -147,50 +161,25 @@ class AMoD:
         # where the following codes are executed between matching and rebalancing
         for k in range(len(self.edges)):
             i, j = self.edges[k]
-            if (i, j) in self.rebFlow and t in self.rebFlow[i, j]:
-                self.acc[j][t + 1] += self.rebFlow[i, j][t]
-            if (i, j) in self.paxFlow and t in self.paxFlow[i, j]:
-                # this means that after pax arrived, vehicles can only be rebalanced
-                # in the next time step, let me know if you have different opinion
-                self.acc[j][t + 1] += self.paxFlow[i, j][t]
+            # this means that after pax arrived, vehicles can only be rebalanced
+            # in the next time step, let me know if you have different opinion
+            self.data.acc[j][t + 1] += self.data.dacc[j][t + 1]
 
         self.time += 1
-        self.obs = (self.acc, self.time, self.dacc, self.demand)  # use self.time to index the next time step
-        for i, j in self.graph.get_all_edges():
-            self.graph.set_edge_time(i, j, self.scenario.get_reb_time(i, j, self.time))
+        # use self.time to index the next time step
+        self.obs = (self.data.acc, self.time, self.data.dacc, self.data.demand)
+
         done = (self.tf == t + 1)  # if the episode is completed
         return self.obs, self.reward, done, self.info
 
     def reset(self):
         # reset the episode
-        self.acc = defaultdict(dict)
-        self.dacc = defaultdict(dict)
-        self.rebFlow = defaultdict(dict)
-        self.paxFlow = defaultdict(dict)
-        self.edges = []
-        for i in self.graph.get_nodes():
-            self.edges.append((i, i))
-            for e in self.graph.get_out_edges(i):
-                self.edges.append(e)
-        self.edges = list(set(self.edges))
-        self.demand = defaultdict(dict)  # demand
-        self.price = defaultdict(dict)  # price
-        trip_attr = self.scenario.get_random_demand(reset=True)
-        for i, j, t, d, p in trip_attr:  # trip attribute (origin, destination, time of request, demand, price)
-            self.demand[i, j][t] = d
-            self.price[i, j][t] = p
-
         self.time = 0
-        for i, j in self.graph.get_all_edges():
-            self.rebFlow[i, j] = defaultdict(float)
-            self.paxFlow[i, j] = defaultdict(float)
-        for n in self.graph.get_nodes():
-            self.acc[n][0] = self.graph.get_init_acc(n)
-            self.dacc[n] = defaultdict(float)
-        t = self.time
-        for i, j in self.demand:
-            self.servedDemand[i, j] = defaultdict(float)
+        self.data.reset(self.scenario.get_random_demand(reset=True))
         # TODO: define states here
-        self.obs = (self.acc, self.time, self.dacc, self.demand)
+        self.obs = (self.data.acc, self.time, self.data.dacc, self.data.demand)
         self.reward = 0
         return self.obs
+
+    def get_demand_input(self, i, j, t):
+        return self.scenario.get_demand_input(i, j, t)

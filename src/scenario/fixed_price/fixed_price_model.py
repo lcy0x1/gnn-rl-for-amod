@@ -82,6 +82,9 @@ class FixedPriceModelScenario(Scenario):
     def get_reb_time(self, o: Node, d: Node, t: Time) -> Time:
         return self.rebTime[o, d][t]
 
+    def get_demand_input(self, o: Node, d: Node, t: Time) -> float:
+        return self.demand_input[o, d][t]
+
     def get_graph(self) -> GraphWrapper:
         return GraphWrapper(deepcopy(self.G))
 

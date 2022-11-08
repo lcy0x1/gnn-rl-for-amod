@@ -24,6 +24,8 @@ from torch_geometric.nn import global_mean_pool, global_max_pool
 from torch_geometric.utils import grid
 from collections import namedtuple
 
+from src.envs.amod_env import AMoD
+
 SavedAction = namedtuple('SavedAction', ['log_prob', 'value'])
 args = namedtuple('args', ('render', 'gamma', 'log_interval'))
 args.render = True
@@ -40,10 +42,11 @@ class GNNParser():
     Parser converting raw environment observations to agent inputs (s_t).
     """
 
-    def __init__(self, env, T=10, grid_h=4, grid_w=4, scale_factor=0.01):
+    def __init__(self, env: AMoD, vehicle_forcast=10, demand_forcast=10, grid_h=4, grid_w=4, scale_factor=0.01):
         super().__init__()
         self.env = env
-        self.T = T
+        self.vehicle_forcast = vehicle_forcast
+        self.demand_forcast = demand_forcast
         self.s = scale_factor
         self.grid_h = grid_h
         self.grid_w = grid_w
@@ -51,21 +54,19 @@ class GNNParser():
     def parse_obs(self, obs):
         size = self.env.nregion
         time = self.env.time
-        tstart = time + 1
-        tend = time + self.T + 1
 
         x = torch.cat(
             (
-                torch.tensor([self.env.acc[n][time + 1] * self.s for n in range(size)]).view(1, 1, size).float(),
-                torch.tensor([[(self.env.acc[n][time + 1] + self.env.dacc[n][t]) * self.s
-                               for n in range(size)] for t in range(tstart, tend)])
-                    .view(1, self.T, size).float(),
-                torch.tensor([[sum([(self.env.scenario.demand_input[i, j][t]) *
-                                    (self.env.price[i, j][t]) * self.s
+                torch.tensor([self.env.data.acc[n][time + 1] * self.s for n in range(size)]).view(1, 1, size).float(),
+                torch.tensor([[(self.env.data.acc[n][time + 1] + self.env.data.dacc[n][t]) * self.s
+                               for n in range(size)] for t in range(time + 1, time + self.vehicle_forcast + 1)])
+                    .view(1, self.vehicle_forcast, size).float(),
+                torch.tensor([[sum([(self.env.get_demand_input(i, j, t)) *
+                                    (self.env.data.price[i, j][t]) * self.s
                                     for j in range(size)]) for i in range(size)]
-                              for t in range(tstart, tend)])
-                    .view(1, self.T, size).float()
-            ), dim=1).squeeze(0).view(21, size).T
+                              for t in range(time + 1, time + self.demand_forcast + 1)])
+                    .view(1, self.demand_forcast, size).float()
+            ), dim=1).squeeze(0).view(1 + self.vehicle_forcast + self.demand_forcast, size).T
         edge_index, pos_coord = grid(height=self.grid_h, width=self.grid_w)
         data = Data(x, edge_index)
         return data

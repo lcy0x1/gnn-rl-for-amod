@@ -34,12 +34,13 @@ class Trainer:
         # use GNN-RL policy (Step 2 in paper)
         action_rl = self.model.select_action(obs)
         # transform sample from Dirichlet into actual vehicle counts (i.e. (x1*x2*..*xn)*num_vehicles)
-        desired_acc = {self.env.region[i]: int(action_rl[i] * dictsum(self.env.acc, self.env.time + 1)) for i in
+        desired_acc = {self.env.region[i]: int(action_rl[i] * dictsum(self.env.data.acc, self.env.time + 1)) for i in
                        range(len(self.env.region))}
         # solve minimum re-balancing distance problem (Step 3 in paper)
         acc_rl_tuple = [(n, int(round(desired_acc[n]))) for n in desired_acc]
-        acc_tuple = [(n, int(self.env.acc[n][self.env.time + 1])) for n in self.env.acc]
-        edge_attr = [(i, j, self.env.graph.get_edge_time(i, j)) for i, j in self.env.graph.get_all_edges()]
+        acc_tuple = [(n, int(self.env.data.acc[n][self.env.time + 1])) for n in self.env.data.acc]
+        edge_attr = [(i, j, self.env.scenario.get_reb_time(i, j, self.env.time))
+                     for i, j in self.env.graph.get_all_edges()]
 
         reb_flow = self.cplex.solve_reb_flow(self.env.time, acc_rl_tuple, acc_tuple, edge_attr)
         reb_action = [reb_flow[i, j] for i, j in self.env.edges]

@@ -21,9 +21,6 @@ class GraphWrapper:
     def get_init_acc(self, n: Node) -> rv.NodeView:
         return self._graph.nodes[n]['accInit']
 
-    def get_edge_time(self, o: Node, d: Node) -> Time:
-        return self._graph.edges[o, d]['time']
-
     def node_list(self) -> [Node]:
         return list(self._graph)
 
