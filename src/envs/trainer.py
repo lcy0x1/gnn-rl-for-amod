@@ -1,21 +1,29 @@
 import numpy as np
+import torch
 from tqdm import trange
 
 from src.algos.a2c_gnn import A2C
 from src.algos.cplex_handle import CPlexHandle
 from src.envs.amod_env import AMoD
 from src.misc.info import LogInfo
+from src.misc.resource_locator import ResourceLocator
 from src.misc.utils import dictsum
+from src.scenario.fixed_price.json_raw_data import JsonRawDataScenario
 
 
 class Trainer:
 
-    def __init__(self, args, model: A2C, env: AMoD, cplex: CPlexHandle):
+    def __init__(self, args, locator: ResourceLocator):
+        self.locator = locator
+        self.scenario = JsonRawDataScenario(json_file=locator.env_json_file, sd=args.seed,
+                                            demand_ratio=args.demand_ratio,
+                                            json_hr=args.json_hr, json_tstep=args.json_tsetp)
+        self.env = AMoD(self.scenario, beta=args.beta)
+        args.cuda = not args.no_cuda and torch.cuda.is_available()
+        device = torch.device("cuda" if args.cuda else "cpu")
+        self.model = A2C(env=self.env, input_size=21).to(device)
+        self.cplex = CPlexHandle(locator.cplex_log_folder, args.cplexpath, platform=args.platform)
         self.log = LogInfo()
-        self.model = model
-        self.env = env
-        self.cplex = cplex
-        self.directory = args.directory
         self.max_episodes = args.max_episodes
         self.max_steps = args.max_steps
 
@@ -59,13 +67,13 @@ class Trainer:
             self.model.training_step()
             epochs.set_description(self.log.get_desc(episode))
             if self.log.episode_reward >= best_reward:
-                self.model.save_checkpoint(path=f"./{self.directory}/ckpt/nyc4/a2c_gnn_test.pth")
+                self.model.save_checkpoint(path=self.locator.save_best())
                 best_reward = self.log.episode_reward
             self.log.append()
-            self.model.log(self.log.to_obj('train'), path=f"./{self.directory}/rl_logs/nyc4/a2c_gnn_test.pth")
+            self.model.log(self.log.to_obj('train'), path=self.locator.train_log())
 
     def test(self):
-        self.model.load_checkpoint(path=f"./{self.directory}/ckpt/nyc4/a2c_gnn.pth")
+        self.model.load_checkpoint(path=self.locator.test_load())
         epochs = trange(self.max_episodes)  # epoch iterator
         # Initialize lists for logging
         for episode in epochs:
@@ -78,5 +86,5 @@ class Trainer:
             epochs.set_description(self.log.get_desc(episode))
             # Log KPIs
             self.log.append()
-            self.model.log(self.log.to_obj('test'), path=f"./{self.directory}/rl_logs/nyc4/a2c_gnn_test.pth")
+            self.model.log(self.log.to_obj('test'), path=self.locator.test_log())
             break

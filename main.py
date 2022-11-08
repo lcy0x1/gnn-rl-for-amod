@@ -2,21 +2,18 @@ from __future__ import print_function
 import argparse
 import torch
 
-from src.algos.cplex_handle import CPlexHandle
-from src.envs.amod_env import AMoD
 from src.envs.trainer import Trainer
-from src.scenario.fixed_price.json_raw_data import JsonRawDataScenario
-from src.algos.a2c_gnn import A2C
+from src.misc.resource_locator import ResourceLocator
 from src.misc.display import display
 
 
-def view(directory):
-    path = f"./{directory}/graphs/nyc4-refactored/"
-    logs = torch.load(f"./{directory}/rl_logs/nyc4/a2c_gnn.pth")
-    print(len(logs['train_reward']))
-    display(logs['train_reward'], f"{path}a2c_gnn_train_reward.png")
-    display(logs['train_served_demand'], f"{path}a2c_gnn_train_served_demand.png")
-    display(logs['train_reb_cost'], f"{path}a2c_gnn_train_reb_cost.png")
+def view(paths: ResourceLocator):
+    path = paths.save_graphs()
+    logs = torch.load(paths.train_log())
+    print(f'Data Points: {len(logs["train_reward"])}')
+    display(logs['train_reward'], f"{path}reward.png")
+    display(logs['train_served_demand'], f"{path}served_demand.png")
+    display(logs['train_reb_cost'], f"{path}reb_cost.png")
 
 
 if __name__ == '__main__':
@@ -45,7 +42,7 @@ if __name__ == '__main__':
                         help='operating system. windows/linux/mac')
     parser.add_argument('--directory', type=str, default='saved_files',
                         help='defines directory where to save files')
-    parser.add_argument('--max_episodes', type=int, default=16000, metavar='N',
+    parser.add_argument('--max_episodes', type=int, default=2000, metavar='N',
                         help='number of episodes to train agent (default: 16k)')
     parser.add_argument('--max_steps', type=int, default=60, metavar='N',
                         help='number of steps per episode (default: T=60)')
@@ -54,18 +51,11 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    locator = ResourceLocator(args.directory, 'default')
     if args.view:
-        view(args.directory)
+        view(locator)
     else:
-        scenario = JsonRawDataScenario(json_file="data/scenario_nyc4x4.json", sd=args.seed,
-                                       demand_ratio=args.demand_ratio,
-                                       json_hr=args.json_hr, json_tstep=args.json_tsetp)
-        env = AMoD(scenario, beta=args.beta)
-        args.cuda = not args.no_cuda and torch.cuda.is_available()
-        device = torch.device("cuda" if args.cuda else "cpu")
-        model = A2C(env=env, input_size=21).to(device)
-        cplex_handle = CPlexHandle('scenario_nyc4', args.cplexpath, platform=args.platform)
-        trainer = Trainer(args, model, env, cplex_handle)
+        trainer = Trainer(args, locator)
         if not args.test:
             trainer.train()
         else:
