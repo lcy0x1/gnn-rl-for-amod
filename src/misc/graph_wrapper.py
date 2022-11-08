@@ -1,6 +1,6 @@
 import networkx as nx
 import networkx.classes.reportviews as rv
-from .types import *
+from src.misc.types import *
 
 
 class GraphWrapper:

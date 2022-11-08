@@ -4,8 +4,8 @@ from copy import deepcopy
 import networkx as nx
 import numpy as np
 
-from src.envs.graph_wrapper import GraphWrapper
-from src.envs.types import Node, Time
+from src.misc.graph_wrapper import GraphWrapper
+from src.misc.types import Node, Time
 from src.scenario.scenario import Scenario
 
 
