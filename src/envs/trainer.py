@@ -36,7 +36,8 @@ class Trainer:
         obs, pax_reward, done, info = self.env.pax_step(self.cplex)
         self.log.episode_reward += pax_reward
         # use GNN-RL policy (Step 2 in paper)
-        action_rl = self.model.select_action(obs)
+        action_rl, prices = self.model.select_action(obs)
+        self.env.data.set_prices(prices, self.env.time + 1)
         # transform sample from Dirichlet into actual vehicle counts (i.e. (x1*x2*..*xn)*num_vehicles)
         desired_acc = {self.env.region[i]: int(action_rl[i] * dictsum(self.env.data.acc, self.env.time + 1)) for i in
                        range(len(self.env.region))}

@@ -42,6 +42,7 @@ class JsonRawDataScenario(Scenario):
         self.alpha = 0
         self.demand_time = defaultdict(dict)
         self.rebTime = defaultdict(dict)
+        self.init_acc = defaultdict(int)
         self.json_start = json_hr * 60
         self.edges = list(self.G.edges) + [(i, i) for i in self.G.nodes]
 
@@ -87,8 +88,11 @@ class JsonRawDataScenario(Scenario):
             hr, acc = item["hour"], item["acc"]
             if hr == json_hr + int(round(json_tstep / 2 * tf / 60)):
                 for n in self.G.nodes:
-                    self.G.nodes[n]['accInit'] = int(acc / len(self.G))
+                    self.init_acc[n] = int(acc / len(self.G))
         self.tripAttr = self.get_random_demand()
+
+    def get_init_acc(self, n: Node) -> int:
+        return self.init_acc[n]
 
     def get_demand_time(self, o: Node, d: Node, t: Time) -> Time:
         return self.demand_time[o, d][t]

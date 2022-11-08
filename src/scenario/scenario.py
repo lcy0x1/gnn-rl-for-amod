@@ -31,6 +31,9 @@ class Scenario:
     def get_graph(self) -> GraphWrapper:
         raise Exception("get_graph Not Implemented")
 
+    def get_init_acc(self, n: Node) -> int:
+        raise Exception("get_init_acc Not Implemented")
+
     def get_random_demand(self, reset=False) -> [(Node, Node, Time, Demand, Price)]:
         raise Exception("get_random_demand Not Implemented")
 

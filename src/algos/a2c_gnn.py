@@ -17,7 +17,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-from torch.distributions import Dirichlet
+from torch.distributions import Dirichlet, Gamma
 from torch_geometric.data import Data
 from torch_geometric.nn import GCNConv
 from torch_geometric.utils import grid
@@ -31,10 +31,6 @@ args.render = True
 args.gamma = 0.97
 args.log_interval = 10
 
-
-#########################################
-############## PARSER ###################
-#########################################
 
 class GNNParser:
     """
@@ -61,7 +57,7 @@ class GNNParser:
                                for n in range(size)] for t in range(time + 1, time + self.vehicle_forecast + 1)])
                     .view(1, self.vehicle_forecast, size).float(),
                 torch.tensor([[sum([(self.env.get_demand_input(i, j, t)) *
-                                    (self.env.data.price[i, j][t]) * self.s
+                                    (self.env.data.get_price(i, j, t)) * self.s
                                     for j in range(size)]) for i in range(size)]
                               for t in range(time + 1, time + self.demand_forecast + 1)])
                     .view(1, self.demand_forecast, size).float()
@@ -74,15 +70,12 @@ class GNNParser:
         return 1 + self.vehicle_forecast + self.demand_forecast
 
 
-#########################################
-############## ACTOR ####################
-#########################################
 class GNNActor(nn.Module):
     """
     Actor pi(a_t | s_t) parametrizing the concentration parameters of a Dirichlet Policy.
     """
 
-    def __init__(self, in_channels, mid_channels):
+    def __init__(self, in_channels, mid_channels, nregion):
         super().__init__()
 
         self.conv1 = GCNConv(in_channels, in_channels)
@@ -90,18 +83,19 @@ class GNNActor(nn.Module):
         self.lin2 = nn.Linear(mid_channels, mid_channels)
         self.lin3 = nn.Linear(mid_channels, 1)
 
+        self.lin4 = nn.Linear(mid_channels, mid_channels)
+        self.bilin = nn.Bilinear(mid_channels, mid_channels, nregion)
+
     def forward(self, data):
         out = F.relu(self.conv1(data.x, data.edge_index))
-        x = out + data.x
-        x = F.relu(self.lin1(x))
-        x = F.relu(self.lin2(x))
-        x = self.lin3(x)
-        return x
+        x0 = out + data.x
+        x0 = F.relu(self.lin1(x0))
+        x1 = F.relu(self.lin2(x0))
+        x1 = self.lin3(x1)
+        x2 = F.relu(self.lin4(x0))
+        x2 = self.bilin(x2, x2)
+        return x1, x2
 
-
-#########################################
-############## CRITIC ###################
-#########################################
 
 class GNNCritic(nn.Module):
     """
@@ -135,7 +129,7 @@ class A2C(nn.Module):
     Advantage Actor Critic algorithm for the AMoD control problem. 
     """
 
-    def __init__(self, env, parser: GNNParser, hidden_size=32,
+    def __init__(self, env: AMoD, parser: GNNParser, hidden_size=32,
                  eps=np.finfo(np.float32).eps.item(),
                  device=torch.device("cpu")):
         super(A2C, self).__init__()
@@ -145,7 +139,7 @@ class A2C(nn.Module):
         self.hidden_size = hidden_size
         self.device = device
 
-        self.actor = GNNActor(self.input_size, self.hidden_size)
+        self.actor = GNNActor(self.input_size, self.hidden_size, env.nregion)
         self.critic = GNNCritic(self.input_size, self.hidden_size)
         self.obs_parser = parser
 
@@ -164,21 +158,28 @@ class A2C(nn.Module):
         x = self.obs_parser.parse_obs(obs).to(self.device)
 
         # actor: computes concentration parameters of a Dirichlet distribution
-        a_out = self.actor(x)
+        a_out, raw_price = self.actor(x)
         concentration = F.softplus(a_out).reshape(-1) + jitter
+        price = F.softplus(raw_price) + jitter
 
         # critic: estimates V(s_t)
         value = self.critic(x)
-        return concentration, value
+        return concentration, price, value
 
     def select_action(self, obs):
-        concentration, value = self.forward(obs)
+        vehicle_vec, price_mat, value = self.forward(obs)
 
-        m = Dirichlet(concentration)
+        vehicle_dist = Dirichlet(vehicle_vec)
+        vehicle_action = vehicle_dist.sample()
 
-        action = m.sample()
-        self.saved_actions.append(SavedAction(m.log_prob(action), value))
-        return list(action.cpu().numpy())
+        price_dist = Gamma(price_mat, 1)
+        price_action = price_dist.sample()
+
+        self.saved_actions.append(SavedAction(
+            vehicle_dist.log_prob(vehicle_action) +
+            price_dist.log_prob(price_action),
+            value))
+        return list(vehicle_action.cpu().numpy()), price_action.cpu().numpy()
 
     def training_step(self):
         R = 0

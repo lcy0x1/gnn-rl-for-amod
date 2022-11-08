@@ -13,8 +13,11 @@ This file contains the specifications for the AMoD system simulator. In particul
 """
 from collections import defaultdict
 
+import numpy
+
 from src.algos.cplex_handle import CPlexHandle
 from src.misc.graph_wrapper import GraphWrapper
+from src.misc.types import *
 from src.scenario.scenario import Scenario
 from src.misc.info import StepInfo
 
@@ -30,8 +33,9 @@ class TimelyData:
         # number of vehicles arriving at each region, key: i - region, t - time
         self.dacc = defaultdict(dict)
 
-        self.demand = defaultdict(dict)  # demand
-        self.price = defaultdict(dict)  # price
+        self._demand = defaultdict(dict)  # demand
+        self._price = defaultdict(dict)  # price
+        self._var_price = defaultdict(lambda: defaultdict(lambda: 1))
 
         # record only, not for calculation
         self.servedDemand = defaultdict(dict)
@@ -47,12 +51,23 @@ class TimelyData:
             self.rebFlow[i, j] = defaultdict(float)
             self.paxFlow[i, j] = defaultdict(float)
             self.servedDemand[i, j] = defaultdict(float)
-        for n in graph.get_nodes():
-            self.acc[n][0] = graph.get_init_acc(n)
+        for n in range(graph.size()):
+            self.acc[n][0] = self._scenario.get_init_acc(n)
             self.dacc[n] = defaultdict(float)
         for i, j, t, d, p in trip_attr:  # trip attribute (origin, destination, time of request, demand, price)
-            self.demand[i, j][t] = d
-            self.price[i, j][t] = p
+            self._demand[i, j][t] = d
+            self._price[i, j][t] = p
+
+    def get_demand(self, o: Node, d: Node, t: Time):
+        return self._demand[o, d][t] * numpy.exp(1 - self._var_price[o, d][t])
+
+    def set_prices(self, prices, t: Time):
+        for o in range(self._graph.size()):
+            for d in range(self._graph.size()):
+                self._var_price[o, d][t] = prices[o, d]
+
+    def get_price(self, o: Node, d: Node, t: Time):
+        return self._price[o, d][t] * self._var_price[o, d]
 
 
 class AMoD:
@@ -70,7 +85,7 @@ class AMoD:
         self.beta = beta * self.scenario.get_step_time()
 
         self.edges = []  # set of rebalancing edges
-        for i in self.graph.get_nodes():
+        for i in range(self.nregion):
             self.edges.append((i, i))
             for e in self.graph.get_out_edges(i):
                 self.edges.append(e)
@@ -83,13 +98,10 @@ class AMoD:
         self.info = StepInfo()
         self.reward = 0
 
-        # observation: current vehicle distribution, time, future arrivals, demand
-        self.obs = (self.data.acc, self.time, self.data.dacc, self.data.demand)
-
     def matching(self, cplex: CPlexHandle):
         t = self.time
-        demand_attr = [(i, j, self.data.demand[i, j][t], self.data.price[i, j][t]) for i, j in self.data.demand
-                       if t in self.data.demand[i, j] and self.data.demand[i, j][t] > 1e-3]
+        demand_attr = [(i, j, self.data.get_demand(i, j, t), self.data.get_price(i, j, t))
+                       for i, j in self.edges if self.data.get_demand(i, j, t) > 1e-3]
         acc_tuple = [(n, self.data.acc[n][t + 1]) for n in self.data.acc]
         flow = cplex.solve_mat_flow(self.time, demand_attr, acc_tuple)
         pax_action = [flow[i, j] if (i, j) in flow else 0 for i, j in self.edges]
@@ -109,7 +121,7 @@ class AMoD:
         # serving passengers
         for k in range(len(self.edges)):
             i, j = self.edges[k]
-            if (i, j) not in self.data.demand or t not in self.data.demand[i, j] or pax_action[k] < 1e-3:
+            if pax_action[k] < 1e-3:
                 continue
             # I moved the min operator above, since we want paxFlow to be consistent with paxAction
             assert pax_action[k] < self.data.acc[i][t + 1] + 1e-3
@@ -121,15 +133,14 @@ class AMoD:
             self.data.acc[i][t + 1] -= pax_action[k]
             self.data.dacc[j][t + demand_time] += pax_action[k]
 
-            self.reward += pax_action[k] * (self.data.price[i, j][t] - demand_time * self.beta)
+            self.reward += pax_action[k] * (self.data.get_price(i, j, t) - demand_time * self.beta)
             self.info.operating_cost += demand_time * self.beta * pax_action[k]
             self.info.served_demand += self.data.servedDemand[i, j][t]
-            self.info.revenue += pax_action[k] * (self.data.price[i, j][t])
+            self.info.revenue += pax_action[k] * (self.data.get_price(i, j, t))
 
         # for acc, the time index would be t+1, but for demand, the time index would be t
-        self.obs = (self.data.acc, self.time, self.data.dacc, self.data.demand)
         done = False  # if passenger matching is executed first
-        return self.obs, max(0, self.reward), done, self.info
+        return self, max(0, self.reward), done, self.info
 
     # reb step
     def reb_step(self, reb_action):
@@ -159,26 +170,23 @@ class AMoD:
         # arrival for the next time step, executed in the last state of a time step
         # this makes the code slightly different from the previous version,
         # where the following codes are executed between matching and rebalancing
-        for j in self.graph.get_nodes():
+        for j in range(self.nregion):
             # this means that after pax arrived, vehicles can only be rebalanced
             # in the next time step, let me know if you have different opinion
             self.data.acc[j][t + 1] += self.data.dacc[j][t]
 
         self.time += 1
         # use self.time to index the next time step
-        self.obs = (self.data.acc, self.time, self.data.dacc, self.data.demand)
 
         done = (self.tf == t + 1)  # if the episode is completed
-        return self.obs, self.reward, done, self.info
+        return self, self.reward, done, self.info
 
     def reset(self):
         # reset the episode
         self.time = 0
-        self.data.reset(self.graph, self.scenario.get_random_demand(reset=True))
-        # TODO: define states here
-        self.obs = (self.data.acc, self.time, self.data.dacc, self.data.demand)
         self.reward = 0
-        return self.obs
+        self.data = TimelyData(self.scenario, self.graph)
+        return self
 
     def get_demand_input(self, i, j, t):
         return self.scenario.get_demand_input(i, j, t)
