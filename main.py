@@ -5,14 +5,14 @@ import torch
 from src.algos.cplex_handle import CPlexHandle
 from src.envs.amod_env import AMoD
 from src.envs.trainer import Trainer
-from src.scenario.json_raw_data import JsonRawDataScenario
+from src.scenario.fixed_price.json_raw_data import JsonRawDataScenario
 from src.algos.a2c_gnn import A2C
 from src.misc.display import display
 
 
 def view(directory):
     path = f"./{directory}/graphs/nyc4-refactored/"
-    logs = torch.load(f"./{directory}/rl_logs/nyc4/a2c_gnn_test.pth")
+    logs = torch.load(f"./{directory}/rl_logs/nyc4/a2c_gnn.pth")
     print(len(logs['train_reward']))
     display(logs['train_reward'], f"{path}a2c_gnn_train_reward.png")
     display(logs['train_served_demand'], f"{path}a2c_gnn_train_served_demand.png")
@@ -53,8 +53,6 @@ if __name__ == '__main__':
                         help='disables CUDA training')
 
     args = parser.parse_args()
-    args.cuda = not args.no_cuda and torch.cuda.is_available()
-    device = torch.device("cuda" if args.cuda else "cpu")
 
     if args.view:
         view(args.directory)
@@ -63,6 +61,8 @@ if __name__ == '__main__':
                                        demand_ratio=args.demand_ratio,
                                        json_hr=args.json_hr, json_tstep=args.json_tsetp)
         env = AMoD(scenario, beta=args.beta)
+        args.cuda = not args.no_cuda and torch.cuda.is_available()
+        device = torch.device("cuda" if args.cuda else "cpu")
         model = A2C(env=env, input_size=21).to(device)
         cplex_handle = CPlexHandle('scenario_nyc4', args.cplexpath, platform=args.platform)
         trainer = Trainer(args, model, env, cplex_handle)

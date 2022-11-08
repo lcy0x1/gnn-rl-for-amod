@@ -28,21 +28,8 @@ class AMoD:
         self.graph = self.scenario.get_graph()
         self.time = 0  # current time
         self.tf = self.scenario.get_final_time()  # final time
-        self.demand = defaultdict(dict)  # demand
-        self.depDemand = dict()
-        self.arrDemand = dict()
         self.region = self.graph.node_list()  # set of regions
-        for i in self.region:
-            self.depDemand[i] = defaultdict(float)
-            self.arrDemand[i] = defaultdict(float)
 
-        self.price = defaultdict(dict)  # price
-        # trip attribute (origin, destination, time of request, demand, price)
-        for i, j, t, d, p in self.scenario.get_random_demand():
-            self.demand[i, j][t] = d
-            self.price[i, j][t] = p
-            self.depDemand[i][t] += d
-            self.arrDemand[i][t + self.scenario.get_demand_time(i, j, t)] += d
         # number of vehicles within each region, key: i - region, t - time
         self.acc = defaultdict(dict)
         # number of vehicles arriving at each region, key: i - region, t - time
@@ -51,8 +38,11 @@ class AMoD:
         self.rebFlow = defaultdict(dict)
         # number of vehicles with passengers, key: (i,j) - (origin, destination), t - time
         self.paxFlow = defaultdict(dict)
+        self.servedDemand = defaultdict(dict)
+
         self.edges = []  # set of rebalancing edges
         self.nregion = self.graph.size()  # number of regions
+        self.beta = beta * self.scenario.get_step_time()
         for i in self.graph.get_nodes():
             self.edges.append((i, i))
             for e in self.graph.get_out_edges(i):
@@ -62,22 +52,23 @@ class AMoD:
         for i, j in self.graph.get_all_edges():
             self.graph.set_edge_time(i, j, self.scenario.get_reb_time(i, j, self.time))
             self.rebFlow[i, j] = defaultdict(float)
-        for i, j in self.demand:
             self.paxFlow[i, j] = defaultdict(float)
+            self.servedDemand[i, j] = defaultdict(float)
         for n in self.region:
             self.acc[n][0] = self.graph.get_init_acc(n)
             self.dacc[n] = defaultdict(float)
-        self.beta = beta * self.scenario.get_step_time()
-        t = self.time
-        self.servedDemand = defaultdict(dict)
-        for i, j in self.demand:
-            self.servedDemand[i, j] = defaultdict(float)
-
-        self.N = len(self.region)  # total number of cells
 
         # add the initialization of info here
         self.info = StepInfo()
         self.reward = 0
+
+        self.demand = defaultdict(dict)  # demand
+        self.price = defaultdict(dict)  # price
+        # trip attribute (origin, destination, time of request, demand, price)
+        for i, j, t, d, p in self.scenario.get_random_demand():
+            self.demand[i, j][t] = d
+            self.price[i, j][t] = p
+
         # observation: current vehicle distribution, time, future arrivals, demand
         self.obs = (self.acc, self.time, self.dacc, self.demand)
 
@@ -96,36 +87,33 @@ class AMoD:
         self.reward = 0
         for i in self.region:
             self.acc[i][t + 1] = self.acc[i][t]
-        self.info.served_demand = 0  # initialize served demand
-        self.info.operating_cost = 0  # initialize operating cost
-        self.info.revenue = 0
-        self.info.reb_cost = 0
+        self.info.reset()
         # default matching algorithm used if isMatching is True,
         # matching method will need the information of self.acc[t+1], therefore this part cannot be put forward
         if pax_action is None:
             pax_action = self.matching(cplex)
-        self.pax_action = pax_action
         # serving passengers
-
         for k in range(len(self.edges)):
             i, j = self.edges[k]
-            if (i, j) not in self.demand or t not in self.demand[i, j] or self.pax_action[k] < 1e-3:
+            if (i, j) not in self.demand or t not in self.demand[i, j] or pax_action[k] < 1e-3:
                 continue
             # I moved the min operator above, since we want paxFlow to be consistent with paxAction
             assert pax_action[k] < self.acc[i][t + 1] + 1e-3
-            self.pax_action[k] = min(self.acc[i][t + 1], pax_action[k])
-            self.servedDemand[i, j][t] = self.pax_action[k]
+            pax_action[k] = min(self.acc[i][t + 1], pax_action[k])
             demand_time = self.scenario.get_demand_time(i, j, t)
-            self.paxFlow[i, j][t + demand_time] = self.pax_action[k]
-            self.info.operating_cost += demand_time * self.beta * self.pax_action[k]
-            self.acc[i][t + 1] -= self.pax_action[k]
-            self.info.served_demand += self.servedDemand[i, j][t]
-            self.dacc[j][t + demand_time] += self.paxFlow[i, j][t + demand_time]
-            self.reward += self.pax_action[k] * (self.price[i, j][t] - demand_time * self.beta)
-            self.info.revenue += self.pax_action[k] * (self.price[i, j][t])
 
-        self.obs = (self.acc, self.time, self.dacc,
-                    self.demand)  # for acc, the time index would be t+1, but for demand, the time index would be t
+            self.servedDemand[i, j][t] = pax_action[k]
+            self.paxFlow[i, j][t + demand_time] = pax_action[k]
+            self.acc[i][t + 1] -= pax_action[k]
+            self.dacc[j][t + demand_time] += self.paxFlow[i, j][t + demand_time]
+
+            self.reward += pax_action[k] * (self.price[i, j][t] - demand_time * self.beta)
+            self.info.operating_cost += demand_time * self.beta * pax_action[k]
+            self.info.served_demand += self.servedDemand[i, j][t]
+            self.info.revenue += pax_action[k] * (self.price[i, j][t])
+
+        # for acc, the time index would be t+1, but for demand, the time index would be t
+        self.obs = (self.acc, self.time, self.dacc, self.demand)
         done = False  # if passenger matching is executed first
         return self.obs, max(0, self.reward), done, self.info
 
@@ -135,7 +123,6 @@ class AMoD:
         # reward is calculated from before this to the next rebalancing,
         # we may also have two rewards, one for pax matching and one for rebalancing
         self.reward = 0
-        self.reb_action = reb_action
         # rebalancing
         for k in range(len(self.edges)):
             i, j = self.edges[k]
@@ -144,14 +131,17 @@ class AMoD:
             # TODO: add check for actions respecting constraints? e.g. sum of all action[k]
             #  starting in "i" <= self.acc[i][t+1] (in addition to our agent action method)
             # update the number of vehicles
-            self.reb_action[k] = min(self.acc[i][t + 1], reb_action[k])
+            reb_action[k] = min(self.acc[i][t + 1], reb_action[k])
             reb_time = self.scenario.get_reb_time(i, j, t)
-            self.rebFlow[i, j][t + reb_time] = self.reb_action[k]
-            self.acc[i][t + 1] -= self.reb_action[k]
+
+            self.rebFlow[i, j][t + reb_time] = reb_action[k]
+            self.acc[i][t + 1] -= reb_action[k]
             self.dacc[j][t + reb_time] += self.rebFlow[i, j][t + reb_time]
-            self.info.reb_cost += reb_time * self.beta * self.reb_action[k]
-            self.info.operating_cost += reb_time * self.beta * self.reb_action[k]
-            self.reward -= reb_time * self.beta * self.reb_action[k]
+
+            cost = reb_time * self.beta * reb_action[k]
+            self.info.reb_cost += cost
+            self.info.operating_cost += cost
+            self.reward -= cost
         # arrival for the next time step, executed in the last state of a time step
         # this makes the code slightly different from the previous version,
         # where the following codes are executed between matching and rebalancing
@@ -186,14 +176,9 @@ class AMoD:
         self.demand = defaultdict(dict)  # demand
         self.price = defaultdict(dict)  # price
         trip_attr = self.scenario.get_random_demand(reset=True)
-        self.region_demand = defaultdict(dict)
         for i, j, t, d, p in trip_attr:  # trip attribute (origin, destination, time of request, demand, price)
             self.demand[i, j][t] = d
             self.price[i, j][t] = p
-            if t not in self.region_demand[i]:
-                self.region_demand[i][t] = 0
-            else:
-                self.region_demand[i][t] += d
 
         self.time = 0
         for i, j in self.graph.get_all_edges():

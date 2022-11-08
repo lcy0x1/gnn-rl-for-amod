@@ -1,7 +1,8 @@
+from src.scenario.fixed_price.fixed_price_model import FixedPriceModelScenario
 from src.scenario.scenario import Scenario
 
 
-class Star2Complete(Scenario):
+class Star2Complete(FixedPriceModelScenario):
     def __init__(self, N1=4, N2=4, sd=10, star_demand=20, complete_demand=1, star_center=[5, 6, 9, 10],
                  grid_travel_time=3, ninit=50, demand_ratio=[1, 1.5, 1.5, 1], alpha=0.2, fix_price=False):
         # beta - proportion of star network

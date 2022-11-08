@@ -29,7 +29,6 @@ class Trainer:
         desired_acc = {self.env.region[i]: int(action_rl[i] * dictsum(self.env.acc, self.env.time + 1)) for i in
                        range(len(self.env.region))}
         # solve minimum re-balancing distance problem (Step 3 in paper)
-
         acc_rl_tuple = [(n, int(round(desired_acc[n]))) for n in desired_acc]
         acc_tuple = [(n, int(self.env.acc[n][self.env.time + 1])) for n in self.env.acc]
         edge_attr = [(i, j, self.env.graph.get_edge_time(i, j)) for i, j in self.env.graph.get_all_edges()]
@@ -47,7 +46,6 @@ class Trainer:
 
     def train(self):
         # Initialize lists for logging
-        log = LogInfo()
         epochs = trange(self.max_episodes)  # epoch iterator
         best_reward = -np.inf  # set best reward
         self.model.train()  # set model in train mode
@@ -55,22 +53,21 @@ class Trainer:
             self.env.reset()  # initialize environment
             for step in range(self.max_steps):
                 done = self.env_step()
-                self.model.rewards.append(log.episode_reward)
+                self.model.rewards.append(self.log.episode_reward)
                 if done:
                     break
             self.model.training_step()
-            epochs.set_description(log.get_desc(episode))
-            if log.episode_reward >= best_reward:
+            epochs.set_description(self.log.get_desc(episode))
+            if self.log.episode_reward >= best_reward:
                 self.model.save_checkpoint(path=f"./{self.directory}/ckpt/nyc4/a2c_gnn_test.pth")
-                best_reward = log.episode_reward
-            log.append()
-            self.model.log(log.to_obj('train'), path=f"./{self.directory}/rl_logs/nyc4/a2c_gnn_test.pth")
+                best_reward = self.log.episode_reward
+            self.log.append()
+            self.model.log(self.log.to_obj('train'), path=f"./{self.directory}/rl_logs/nyc4/a2c_gnn_test.pth")
 
     def test(self):
         self.model.load_checkpoint(path=f"./{self.directory}/ckpt/nyc4/a2c_gnn.pth")
         epochs = trange(self.max_episodes)  # epoch iterator
         # Initialize lists for logging
-        log = LogInfo()
         for episode in epochs:
             self.env.reset()
             for step in range(self.max_steps):
@@ -78,8 +75,8 @@ class Trainer:
                 if done:
                     break
             # Send current statistics to screen
-            epochs.set_description(log.get_desc(episode))
+            epochs.set_description(self.log.get_desc(episode))
             # Log KPIs
-            log.append()
-            self.model.log(log.to_obj('test'), path=f"./{self.directory}/rl_logs/nyc4/a2c_gnn_test.pth")
+            self.log.append()
+            self.model.log(self.log.to_obj('test'), path=f"./{self.directory}/rl_logs/nyc4/a2c_gnn_test.pth")
             break

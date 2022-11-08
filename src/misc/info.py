@@ -6,6 +6,12 @@ class StepInfo:
         self.revenue = 0
         self.reb_cost = 0
 
+    def reset(self):
+        self.served_demand = 0
+        self.operating_cost = 0
+        self.revenue = 0
+        self.reb_cost = 0
+
 
 class LogInfo:
 

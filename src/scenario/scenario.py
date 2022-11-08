@@ -35,7 +35,13 @@ class Scenario:
         raise Exception("get_random_demand Not Implemented")
 
     def get_demand_time(self, o: Node, d: Node, t: Time) -> Time:
+        """
+        Time to move vehicle with passengers from Node o (origin) to Node d (destination)
+        """
         raise Exception("get_demand_time Not Implemented")
 
     def get_reb_time(self, o: Node, d: Node, t: Time) -> Time:
+        """
+        Time to move empty vehicle from Node o (origin) to Node d (destination)
+        """
         raise Exception("get_reb_time Not Implemented")
