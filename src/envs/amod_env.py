@@ -15,14 +15,13 @@ from collections import defaultdict
 
 from src.algos.cplex_handle import CPlexHandle
 from src.misc.graph_wrapper import GraphWrapper
-from src.misc.types import Time
 from src.scenario.scenario import Scenario
 from src.misc.info import StepInfo
 
 
 class TimelyData:
 
-    def __init__(self, time: Time, scenario: Scenario, graph: GraphWrapper):
+    def __init__(self, scenario: Scenario, graph: GraphWrapper):
         self._scenario = scenario
         self._graph = graph
 
@@ -30,25 +29,26 @@ class TimelyData:
         self.acc = defaultdict(dict)
         # number of vehicles arriving at each region, key: i - region, t - time
         self.dacc = defaultdict(dict)
+
+        self.demand = defaultdict(dict)  # demand
+        self.price = defaultdict(dict)  # price
+
+        # record only, not for calculation
+        self.servedDemand = defaultdict(dict)
         # number of rebalancing vehicles, key: (i,j) - (origin, destination), t - time
         self.rebFlow = defaultdict(dict)
         # number of vehicles with passengers, key: (i,j) - (origin, destination), t - time
         self.paxFlow = defaultdict(dict)
-        self.servedDemand = defaultdict(dict)
 
-        self.demand = defaultdict(dict)  # demand
-        self.price = defaultdict(dict)  # price
-        # trip attribute (origin, destination, time of request, demand, price)
+        self.reset(graph, scenario.get_random_demand())
 
-        self.reset(scenario.get_random_demand())
-
-    def reset(self, trip_attr):
-        for i, j in self._graph.get_all_edges():
+    def reset(self, graph: GraphWrapper, trip_attr):
+        for i, j in graph.get_all_edges():
             self.rebFlow[i, j] = defaultdict(float)
             self.paxFlow[i, j] = defaultdict(float)
             self.servedDemand[i, j] = defaultdict(float)
-        for n in self._graph.get_nodes():
-            self.acc[n][0] = self._graph.get_init_acc(n)
+        for n in graph.get_nodes():
+            self.acc[n][0] = graph.get_init_acc(n)
             self.dacc[n] = defaultdict(float)
         for i, j, t, d, p in trip_attr:  # trip attribute (origin, destination, time of request, demand, price)
             self.demand[i, j][t] = d
@@ -77,7 +77,7 @@ class AMoD:
         self.edges = list(set(self.edges))
         self.nedge = [len(self.graph.get_out_edges(n)) + 1 for n in self.region]  # number of edges leaving each region
 
-        self.data = TimelyData(self.time, self.scenario, self.graph)
+        self.data = TimelyData(self.scenario, self.graph)
 
         # add the initialization of info here
         self.info = StepInfo()
@@ -159,11 +159,10 @@ class AMoD:
         # arrival for the next time step, executed in the last state of a time step
         # this makes the code slightly different from the previous version,
         # where the following codes are executed between matching and rebalancing
-        for k in range(len(self.edges)):
-            i, j = self.edges[k]
+        for j in self.graph.get_nodes():
             # this means that after pax arrived, vehicles can only be rebalanced
             # in the next time step, let me know if you have different opinion
-            self.data.acc[j][t + 1] += self.data.dacc[j][t + 1]
+            self.data.acc[j][t + 1] += self.data.dacc[j][t]
 
         self.time += 1
         # use self.time to index the next time step
@@ -175,7 +174,7 @@ class AMoD:
     def reset(self):
         # reset the episode
         self.time = 0
-        self.data.reset(self.scenario.get_random_demand(reset=True))
+        self.data.reset(self.graph, self.scenario.get_random_demand(reset=True))
         # TODO: define states here
         self.obs = (self.data.acc, self.time, self.data.dacc, self.data.demand)
         self.reward = 0
