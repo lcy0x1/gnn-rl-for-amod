@@ -142,6 +142,7 @@ class A2C(nn.Module):
         self.actor = GNNActor(self.input_size, self.hidden_size, env.nregion)
         self.critic = GNNCritic(self.input_size, self.hidden_size)
         self.obs_parser = parser
+        self.log_rate = nn.Parameter(torch.ones((env.nregion, env.nregion)), requires_grad=True)
 
         self.optimizers = self.configure_optimizers()
 
@@ -172,13 +173,17 @@ class A2C(nn.Module):
         vehicle_dist = Dirichlet(vehicle_vec)
         vehicle_action = vehicle_dist.sample()
 
-        price_dist = Gamma(price_mat, 1)
+        if not self.training:
+            list(vehicle_action.cpu().numpy()), price_mat.cpu().numpy()
+
+        price_dist = Gamma(price_mat * self.log_rate, self.log_rate)
         price_action = price_dist.sample()
 
         self.saved_actions.append(SavedAction(
             vehicle_dist.log_prob(vehicle_action) +
             price_dist.log_prob(price_action),
             value))
+
         return list(vehicle_action.cpu().numpy()), price_action.cpu().numpy()
 
     def training_step(self):

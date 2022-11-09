@@ -50,7 +50,7 @@ if __name__ == '__main__':
                         help='operating system. windows/linux/mac')
     parser.add_argument('--directory', type=str, default='saved_files',
                         help='defines directory where to save files')
-    parser.add_argument('--max_episodes', type=int, default=2000, metavar='N',
+    parser.add_argument('--max_episodes', type=int, default=20000, metavar='N',
                         help='number of episodes to train agent (default: 16k)')
     parser.add_argument('--max_steps', type=int, default=60, metavar='N',
                         help='number of steps per episode (default: T=60)')
@@ -64,6 +64,8 @@ if __name__ == '__main__':
                         help='time steps for the network to preview demand')
     parser.add_argument('--instance_suffix', type=str, default='default',
                         help='name for instance, helps to separate data')
+    parser.add_argument('--fixed_price', type=bool, default=False,
+                        help='make the environment to ignore price input')
 
     args = parser.parse_args()
 

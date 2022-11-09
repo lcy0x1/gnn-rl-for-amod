@@ -11,69 +11,17 @@ This file contains the specifications for the AMoD system simulator. In particul
 (4) A2C:
     Advantage Actor Critic algorithm using a GNN parametrization for both Actor and Critic.
 """
-from collections import defaultdict
-
-import numpy
 
 from src.algos.cplex_handle import CPlexHandle
-from src.misc.graph_wrapper import GraphWrapper
-from src.misc.types import *
+from src.envs.timely_data import TimelyData
 from src.scenario.scenario import Scenario
 from src.misc.info import StepInfo
-
-
-class TimelyData:
-
-    def __init__(self, scenario: Scenario, graph: GraphWrapper):
-        self._scenario = scenario
-        self._graph = graph
-
-        # number of vehicles within each region, key: i - region, t - time
-        self.acc = defaultdict(dict)
-        # number of vehicles arriving at each region, key: i - region, t - time
-        self.dacc = defaultdict(dict)
-
-        self._demand = defaultdict(dict)  # demand
-        self._price = defaultdict(dict)  # price
-        self._var_price = defaultdict(lambda: defaultdict(lambda: 1))
-
-        # record only, not for calculation
-        self.servedDemand = defaultdict(dict)
-        # number of rebalancing vehicles, key: (i,j) - (origin, destination), t - time
-        self.rebFlow = defaultdict(dict)
-        # number of vehicles with passengers, key: (i,j) - (origin, destination), t - time
-        self.paxFlow = defaultdict(dict)
-
-        self.reset(graph, scenario.get_random_demand())
-
-    def reset(self, graph: GraphWrapper, trip_attr):
-        for i, j in graph.get_all_edges():
-            self.rebFlow[i, j] = defaultdict(float)
-            self.paxFlow[i, j] = defaultdict(float)
-            self.servedDemand[i, j] = defaultdict(float)
-        for n in range(graph.size()):
-            self.acc[n][0] = self._scenario.get_init_acc(n)
-            self.dacc[n] = defaultdict(float)
-        for i, j, t, d, p in trip_attr:  # trip attribute (origin, destination, time of request, demand, price)
-            self._demand[i, j][t] = d
-            self._price[i, j][t] = p
-
-    def get_demand(self, o: Node, d: Node, t: Time):
-        return self._demand[o, d][t] * numpy.exp(1 - self._var_price[o, d][t])
-
-    def set_prices(self, prices, t: Time):
-        for o in range(self._graph.size()):
-            for d in range(self._graph.size()):
-                self._var_price[o, d][t] = prices[o, d]
-
-    def get_price(self, o: Node, d: Node, t: Time):
-        return self._price[o, d][t] * self._var_price[o, d]
 
 
 class AMoD:
     # initialization
     def __init__(self, scenario: Scenario,
-                 beta=0.2):  # updated to take scenario and beta (cost for rebalancing) as input
+                 beta=0.2, fixed_price=False):  # updated to take scenario and beta (cost for rebalancing) as input
         # I changed it to deep copy so that the scenario input is not modified by env
         self.scenario = scenario
         # Road Graph: node - region, edge - connection of regions, node attr: 'accInit', edge attr: 'time'
@@ -83,6 +31,7 @@ class AMoD:
         self.region = self.graph.node_list()  # set of regions
         self.nregion = self.graph.size()  # number of regions
         self.beta = beta * self.scenario.get_step_time()
+        self.fixed_price = fixed_price
 
         self.edges = []  # set of rebalancing edges
         for i in range(self.nregion):
@@ -92,7 +41,7 @@ class AMoD:
         self.edges = list(set(self.edges))
         self.nedge = [len(self.graph.get_out_edges(n)) + 1 for n in self.region]  # number of edges leaving each region
 
-        self.data = TimelyData(self.scenario, self.graph)
+        self.data = TimelyData(self.scenario, self.graph, self.fixed_price)
 
         # add the initialization of info here
         self.info = StepInfo()
@@ -185,7 +134,7 @@ class AMoD:
         # reset the episode
         self.time = 0
         self.reward = 0
-        self.data = TimelyData(self.scenario, self.graph)
+        self.data = TimelyData(self.scenario, self.graph,self.fixed_price)
         return self
 
     def get_demand_input(self, i, j, t):

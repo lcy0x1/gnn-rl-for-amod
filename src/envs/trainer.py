@@ -18,7 +18,7 @@ class Trainer:
         self.scenario = JsonRawDataScenario(json_file=locator.env_json_file, sd=args.seed,
                                             demand_ratio=args.demand_ratio,
                                             json_hr=args.json_hr, json_tstep=args.json_tsetp)
-        self.env = AMoD(self.scenario, beta=args.beta)
+        self.env = AMoD(self.scenario, beta=args.beta, fixed_price=args.fixed_price)
         args.cuda = not args.no_cuda and torch.cuda.is_available()
         device = torch.device("cuda" if args.cuda else "cpu")
         self.model = A2C(env=self.env,
@@ -80,6 +80,7 @@ class Trainer:
 
     def test(self):
         self.model.load_checkpoint(path=self.locator.test_load())
+        self.model.train(False)
         epochs = trange(self.max_episodes)  # epoch iterator
         # Initialize lists for logging
         for episode in epochs:
