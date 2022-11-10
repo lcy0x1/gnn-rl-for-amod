@@ -171,11 +171,12 @@ class A2C(nn.Module):
         vehicle_vec, price_mat, value = self.forward(obs)
 
         vehicle_dist = Dirichlet(vehicle_vec)
-        vehicle_action = vehicle_dist.sample()
 
         if not self.training:
-            list(vehicle_action.cpu().numpy()), price_mat.cpu().numpy()
+            vehicle_action = vehicle_dist.mean
+            return list(vehicle_action.detach().cpu().numpy()), price_mat.detach().cpu().numpy()
 
+        vehicle_action = vehicle_dist.sample()
         price_dist = Gamma(price_mat * self.log_rate, self.log_rate)
         price_action = price_dist.sample()
 

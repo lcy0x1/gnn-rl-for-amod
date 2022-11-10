@@ -47,15 +47,21 @@ class Trainer:
         edge_attr = [(i, j, self.env.scenario.get_reb_time(i, j, self.env.time))
                      for i, j in self.env.graph.get_all_edges()]
 
-        reb_flow = self.cplex.solve_reb_flow(self.env.time, acc_rl_tuple, acc_tuple, edge_attr)
+        try:
+            reb_flow = self.cplex.solve_reb_flow(self.env.time, acc_rl_tuple, acc_tuple, edge_attr)
+        except Exception as n:
+            print(f"Error occurred at step {self.env.time}")
+            total_desired = sum([round(desired_acc[i]) for i in desired_acc])
+            total_available = sum([int(self.env.data.acc[n][self.env.time + 1]) for n in self.env.data.acc])
+            print(f" {total_available} available, {total_desired} desired")
+            raise n
+
         reb_action = [reb_flow[i, j] for i, j in self.env.edges]
 
         # Take action in environment
         _, reb_reward, done, info = self.env.reb_step(reb_action)
         self.log.episode_reward += reb_reward
-        # Store the transition in memory
-        self.log.episode_served_demand += info.served_demand
-        self.log.episode_reb_cost += info.reb_cost
+        self.log.accept(info)
         return done
 
     def train(self):
@@ -71,6 +77,7 @@ class Trainer:
                 if done:
                     break
             self.model.training_step()
+            self.log.finish(self.env.time)
             epochs.set_description(self.log.get_desc(episode))
             if self.log.episode_reward >= best_reward:
                 self.model.save_checkpoint(path=self.locator.save_best())
@@ -89,9 +96,9 @@ class Trainer:
                 done = self.env_step()
                 if done:
                     break
-            # Send current statistics to screen
-            epochs.set_description(self.log.get_desc(episode))
-            # Log KPIs
+            self.log.finish(self.env.time)
             self.log.append()
+            epochs.set_description(self.log.get_average(episode))
+            # Log KPIs
             self.model.log(self.log.to_obj('test'), path=self.locator.test_log())
             break

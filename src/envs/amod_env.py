@@ -44,7 +44,7 @@ class AMoD:
         self.data = TimelyData(self.scenario, self.graph, self.fixed_price)
 
         # add the initialization of info here
-        self.info = StepInfo()
+        self.info = StepInfo(self.data.total_acc)
         self.reward = 0
 
     def matching(self, cplex: CPlexHandle):
@@ -86,6 +86,7 @@ class AMoD:
             self.info.operating_cost += demand_time * self.beta * pax_action[k]
             self.info.served_demand += self.data.servedDemand[i, j][t]
             self.info.revenue += pax_action[k] * (self.data.get_price(i, j, t))
+            self.info.pax_vehicle += pax_action[k] * demand_time
 
         # for acc, the time index would be t+1, but for demand, the time index would be t
         done = False  # if passenger matching is executed first
@@ -115,7 +116,9 @@ class AMoD:
             cost = reb_time * self.beta * reb_action[k]
             self.info.reb_cost += cost
             self.info.operating_cost += cost
+            self.info.reb_vehicle += reb_action[k] * reb_time
             self.reward -= cost
+            self.info.idle_vehicle += self.data.acc[i][t + 1]
         # arrival for the next time step, executed in the last state of a time step
         # this makes the code slightly different from the previous version,
         # where the following codes are executed between matching and rebalancing
@@ -134,7 +137,7 @@ class AMoD:
         # reset the episode
         self.time = 0
         self.reward = 0
-        self.data = TimelyData(self.scenario, self.graph,self.fixed_price)
+        self.data = TimelyData(self.scenario, self.graph, self.fixed_price)
         return self
 
     def get_demand_input(self, i, j, t):

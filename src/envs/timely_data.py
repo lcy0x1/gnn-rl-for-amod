@@ -13,6 +13,7 @@ class TimelyData:
         self._scenario = scenario
         self._graph = graph
         self._fixed_price = fixed_price
+        self.total_acc = 0
 
         # number of vehicles within each region, key: i - region, t - time
         self.acc = defaultdict(dict)
@@ -37,9 +38,12 @@ class TimelyData:
             self.rebFlow[i, j] = defaultdict(float)
             self.paxFlow[i, j] = defaultdict(float)
             self.servedDemand[i, j] = defaultdict(float)
+        self.total_acc = 0
         for n in range(graph.size()):
-            self.acc[n][0] = self._scenario.get_init_acc(n)
+            acc = self._scenario.get_init_acc(n)
+            self.acc[n][0] = acc
             self.dacc[n] = defaultdict(float)
+            self.total_acc += acc
         for i, j, t, d, p in trip_attr:  # trip attribute (origin, destination, time of request, demand, price)
             self._demand[i, j][t] = d
             self._price[i, j][t] = p
