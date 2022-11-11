@@ -30,7 +30,7 @@ if __name__ == '__main__':
     # Simulator parameters
     parser.add_argument('--seed', type=int, default=10, metavar='S',
                         help='random seed (default: 10)')
-    parser.add_argument('--demand_ratio', type=int, default=0.5, metavar='S',
+    parser.add_argument('--demand_ratio', type=int, default=1, metavar='S',
                         help='demand_ratio (default: 0.5)')
     parser.add_argument('--json_hr', type=int, default=7, metavar='S',
                         help='json_hr (default: 7)')

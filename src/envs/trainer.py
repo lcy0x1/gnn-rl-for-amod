@@ -2,7 +2,8 @@ import numpy as np
 import torch
 from tqdm import trange
 
-from src.algos.a2c_gnn import A2C, GNNParser
+from src.algos.a2c_gnn import A2C
+from src.algos.obs_parser import GNNParser
 from src.algos.cplex_handle import CPlexHandle
 from src.envs.amod_env import AMoD
 from src.misc.info import LogInfo
@@ -15,21 +16,23 @@ class Trainer:
 
     def __init__(self, args, locator: ResourceLocator):
         self.locator = locator
+        self.max_steps = args.max_steps
         self.scenario = JsonRawDataScenario(json_file=locator.env_json_file, sd=args.seed,
                                             demand_ratio=args.demand_ratio,
-                                            json_hr=args.json_hr, json_tstep=args.json_tsetp)
-        self.env = AMoD(self.scenario, beta=args.beta, fixed_price=args.fixed_price)
+                                            json_hr=args.json_hr, json_tstep=args.json_tsetp,
+                                            tf=self.max_steps)
+        self.env = AMoD(self.scenario, beta=args.beta)
         args.cuda = not args.no_cuda and torch.cuda.is_available()
         device = torch.device("cuda" if args.cuda else "cpu")
         self.model = A2C(env=self.env,
                          parser=GNNParser(self.env,
                                           vehicle_forecast=args.vehicle_forecast,
                                           demand_forecast=args.demand_forecast
-                                          )).to(device)
+                                          ),
+                         fixed_price=args.fixed_price).to(device)
         self.cplex = CPlexHandle(locator.cplex_log_folder, args.cplexpath, platform=args.platform)
         self.log = LogInfo()
         self.max_episodes = args.max_episodes
-        self.max_steps = args.max_steps
 
     def env_step(self):
         # take matching step (Step 1 in paper)
@@ -101,4 +104,3 @@ class Trainer:
             epochs.set_description(self.log.get_average(episode))
             # Log KPIs
             self.model.log(self.log.to_obj('test'), path=self.locator.test_log())
-            break

@@ -20,8 +20,8 @@ from src.misc.info import StepInfo
 
 class AMoD:
     # initialization
-    def __init__(self, scenario: Scenario,
-                 beta=0.2, fixed_price=False):  # updated to take scenario and beta (cost for rebalancing) as input
+    def __init__(self, scenario: Scenario, beta=0.2):
+        # updated to take scenario and beta (cost for rebalancing) as input
         # I changed it to deep copy so that the scenario input is not modified by env
         self.scenario = scenario
         # Road Graph: node - region, edge - connection of regions, node attr: 'accInit', edge attr: 'time'
@@ -31,7 +31,6 @@ class AMoD:
         self.region = self.graph.node_list()  # set of regions
         self.nregion = self.graph.size()  # number of regions
         self.beta = beta * self.scenario.get_step_time()
-        self.fixed_price = fixed_price
 
         self.edges = []  # set of rebalancing edges
         for i in range(self.nregion):
@@ -41,7 +40,7 @@ class AMoD:
         self.edges = list(set(self.edges))
         self.nedge = [len(self.graph.get_out_edges(n)) + 1 for n in self.region]  # number of edges leaving each region
 
-        self.data = TimelyData(self.scenario, self.graph, self.fixed_price)
+        self.data = TimelyData(self.scenario, self.graph)
 
         # add the initialization of info here
         self.info = StepInfo(self.data.total_acc)
@@ -70,23 +69,21 @@ class AMoD:
         # serving passengers
         for k in range(len(self.edges)):
             i, j = self.edges[k]
-            if pax_action[k] < 1e-3:
+            int_pax = int(min(self.data.acc[i][t + 1], pax_action[k]))
+            if pax_action[k] == 0:
                 continue
-            # I moved the min operator above, since we want paxFlow to be consistent with paxAction
-            assert pax_action[k] < self.data.acc[i][t + 1] + 1e-3
-            pax_action[k] = min(self.data.acc[i][t + 1], pax_action[k])
             demand_time = self.scenario.get_demand_time(i, j, t)
 
-            self.data.servedDemand[i, j][t] = pax_action[k]
-            self.data.paxFlow[i, j][t + demand_time] = pax_action[k]
-            self.data.acc[i][t + 1] -= pax_action[k]
-            self.data.dacc[j][t + demand_time] += pax_action[k]
+            self.data.servedDemand[i, j][t] = int_pax
+            self.data.paxFlow[i, j][t + demand_time] = int_pax
+            self.data.acc[i][t + 1] -= int_pax
+            self.data.dacc[j][t + demand_time] += int_pax
 
-            self.reward += pax_action[k] * (self.data.get_price(i, j, t) - demand_time * self.beta)
-            self.info.operating_cost += demand_time * self.beta * pax_action[k]
-            self.info.served_demand += self.data.servedDemand[i, j][t]
-            self.info.revenue += pax_action[k] * (self.data.get_price(i, j, t))
-            self.info.pax_vehicle += pax_action[k] * demand_time
+            self.reward += int_pax * (self.data.get_price(i, j, t) - demand_time * self.beta)
+            self.info.operating_cost += demand_time * self.beta * int_pax
+            self.info.served_demand += int_pax
+            self.info.revenue += int_pax * (self.data.get_price(i, j, t))
+            self.info.pax_vehicle += int_pax * demand_time
 
         # for acc, the time index would be t+1, but for demand, the time index would be t
         done = False  # if passenger matching is executed first
@@ -106,26 +103,26 @@ class AMoD:
             # TODO: add check for actions respecting constraints? e.g. sum of all action[k]
             #  starting in "i" <= self.acc[i][t+1] (in addition to our agent action method)
             # update the number of vehicles
-            reb_action[k] = min(self.data.acc[i][t + 1], reb_action[k])
+            int_reb = int(min(self.data.acc[i][t + 1], reb_action[k]))
             reb_time = self.scenario.get_reb_time(i, j, t)
 
-            self.data.rebFlow[i, j][t + reb_time] = reb_action[k]
-            self.data.acc[i][t + 1] -= reb_action[k]
-            self.data.dacc[j][t + reb_time] += reb_action[k]
+            self.data.rebFlow[i, j][t + reb_time] = int_reb
+            self.data.acc[i][t + 1] -= int_reb
+            self.data.dacc[j][t + reb_time] += int_reb
 
-            cost = reb_time * self.beta * reb_action[k]
+            cost = reb_time * self.beta * int_reb
             self.info.reb_cost += cost
             self.info.operating_cost += cost
-            self.info.reb_vehicle += reb_action[k] * reb_time
+            self.info.reb_vehicle += int_reb * reb_time
             self.reward -= cost
-            self.info.idle_vehicle += self.data.acc[i][t + 1]
         # arrival for the next time step, executed in the last state of a time step
         # this makes the code slightly different from the previous version,
         # where the following codes are executed between matching and rebalancing
         for j in range(self.nregion):
             # this means that after pax arrived, vehicles can only be rebalanced
             # in the next time step, let me know if you have different opinion
-            self.data.acc[j][t + 1] += self.data.dacc[j][t]
+            self.info.idle_vehicle += self.data.acc[j][t + 1]
+            self.data.acc[j][t + 1] += self.data.dacc[j][t + 1]
 
         self.time += 1
         # use self.time to index the next time step
@@ -137,7 +134,7 @@ class AMoD:
         # reset the episode
         self.time = 0
         self.reward = 0
-        self.data = TimelyData(self.scenario, self.graph, self.fixed_price)
+        self.data = TimelyData(self.scenario, self.graph)
         return self
 
     def get_demand_input(self, i, j, t):

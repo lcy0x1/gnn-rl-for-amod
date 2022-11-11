@@ -13,16 +13,12 @@ This file contains the A2C-GNN specifications. In particular, we implement:
 """
 
 import numpy as np
-import torch
-from torch import nn
-import torch.nn.functional as F
 
 from torch.distributions import Dirichlet, Gamma
-from torch_geometric.data import Data
-from torch_geometric.nn import GCNConv
-from torch_geometric.utils import grid
 from collections import namedtuple
 
+from src.algos.gnn_networks import *
+from src.algos.obs_parser import GNNParser
 from src.envs.amod_env import AMoD
 
 SavedAction = namedtuple('SavedAction', ['log_prob', 'value'])
@@ -32,98 +28,6 @@ args.gamma = 0.97
 args.log_interval = 10
 
 
-class GNNParser:
-    """
-    Parser converting raw environment observations to agent inputs (s_t).
-    """
-
-    def __init__(self, env: AMoD, vehicle_forecast=10, demand_forecast=10, grid_h=4, grid_w=4, scale_factor=0.01):
-        super().__init__()
-        self.env = env
-        self.vehicle_forecast = vehicle_forecast
-        self.demand_forecast = demand_forecast
-        self.s = scale_factor
-        self.grid_h = grid_h
-        self.grid_w = grid_w
-
-    def parse_obs(self, obs):
-        size = self.env.nregion
-        time = self.env.time
-
-        x = torch.cat(
-            (
-                torch.tensor([self.env.data.acc[n][time + 1] * self.s for n in range(size)]).view(1, 1, size).float(),
-                torch.tensor([[(self.env.data.acc[n][time + 1] + self.env.data.dacc[n][t]) * self.s
-                               for n in range(size)] for t in range(time + 1, time + self.vehicle_forecast + 1)])
-                    .view(1, self.vehicle_forecast, size).float(),
-                torch.tensor([[sum([(self.env.get_demand_input(i, j, t)) *
-                                    (self.env.data.get_price(i, j, t)) * self.s
-                                    for j in range(size)]) for i in range(size)]
-                              for t in range(time + 1, time + self.demand_forecast + 1)])
-                    .view(1, self.demand_forecast, size).float()
-            ), dim=1).squeeze(0).view(1 + self.vehicle_forecast + self.demand_forecast, size).T
-        edge_index, pos_coord = grid(height=self.grid_h, width=self.grid_w)
-        data = Data(x, edge_index)
-        return data
-
-    def width(self):
-        return 1 + self.vehicle_forecast + self.demand_forecast
-
-
-class GNNActor(nn.Module):
-    """
-    Actor pi(a_t | s_t) parametrizing the concentration parameters of a Dirichlet Policy.
-    """
-
-    def __init__(self, in_channels, mid_channels, nregion):
-        super().__init__()
-
-        self.conv1 = GCNConv(in_channels, in_channels)
-        self.lin1 = nn.Linear(in_channels, mid_channels)
-        self.lin2 = nn.Linear(mid_channels, mid_channels)
-        self.lin3 = nn.Linear(mid_channels, 1)
-
-        self.lin4 = nn.Linear(mid_channels, mid_channels)
-        self.bilin = nn.Bilinear(mid_channels, mid_channels, nregion)
-
-    def forward(self, data):
-        out = F.relu(self.conv1(data.x, data.edge_index))
-        x0 = out + data.x
-        x0 = F.relu(self.lin1(x0))
-        x1 = F.relu(self.lin2(x0))
-        x1 = self.lin3(x1)
-        x2 = F.relu(self.lin4(x0))
-        x2 = self.bilin(x2, x2)
-        return x1, x2
-
-
-class GNNCritic(nn.Module):
-    """
-    Critic parametrizing the value function estimator V(s_t).
-    """
-
-    def __init__(self, in_channels, mid_channels):
-        super().__init__()
-
-        self.conv1 = GCNConv(in_channels, in_channels)
-        self.lin1 = nn.Linear(in_channels, mid_channels)
-        self.lin2 = nn.Linear(mid_channels, mid_channels)
-        self.lin3 = nn.Linear(mid_channels, 1)
-
-    def forward(self, data):
-        out = F.relu(self.conv1(data.x, data.edge_index))
-        x = out + data.x
-        x = torch.sum(x, dim=0)
-        x = F.relu(self.lin1(x))
-        x = F.relu(self.lin2(x))
-        x = self.lin3(x)
-        return x
-
-
-#########################################
-############## A2C AGENT ################
-#########################################
-
 class A2C(nn.Module):
     """
     Advantage Actor Critic algorithm for the AMoD control problem. 
@@ -131,7 +35,7 @@ class A2C(nn.Module):
 
     def __init__(self, env: AMoD, parser: GNNParser, hidden_size=32,
                  eps=np.finfo(np.float32).eps.item(),
-                 device=torch.device("cpu")):
+                 device=torch.device("cpu"), fixed_price: bool = False):
         super(A2C, self).__init__()
         self.env = env
         self.eps = eps
@@ -139,7 +43,9 @@ class A2C(nn.Module):
         self.hidden_size = hidden_size
         self.device = device
 
-        self.actor = GNNActor(self.input_size, self.hidden_size, env.nregion)
+        cls = GNNActorFixedPrice if fixed_price else GNNActorVariablePrice
+
+        self.actor = cls(self.input_size, self.hidden_size, env.nregion)
         self.critic = GNNCritic(self.input_size, self.hidden_size)
         self.obs_parser = parser
         self.log_rate = nn.Parameter(torch.ones((env.nregion, env.nregion)), requires_grad=True)

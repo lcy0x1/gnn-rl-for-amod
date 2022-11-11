@@ -9,10 +9,9 @@ from src.scenario.scenario import Scenario
 
 class TimelyData:
 
-    def __init__(self, scenario: Scenario, graph: GraphWrapper, fixed_price: bool):
+    def __init__(self, scenario: Scenario, graph: GraphWrapper):
         self._scenario = scenario
         self._graph = graph
-        self._fixed_price = fixed_price
         self.total_acc = 0
 
         # number of vehicles within each region, key: i - region, t - time
@@ -37,23 +36,21 @@ class TimelyData:
         for i, j in graph.get_all_edges():
             self.rebFlow[i, j] = defaultdict(float)
             self.paxFlow[i, j] = defaultdict(float)
-            self.servedDemand[i, j] = defaultdict(float)
+            self.servedDemand[i, j] = defaultdict(int)
         self.total_acc = 0
         for n in range(graph.size()):
             acc = self._scenario.get_init_acc(n)
             self.acc[n][0] = acc
-            self.dacc[n] = defaultdict(float)
+            self.dacc[n] = defaultdict(int)
             self.total_acc += acc
         for i, j, t, d, p in trip_attr:  # trip attribute (origin, destination, time of request, demand, price)
             self._demand[i, j][t] = d
             self._price[i, j][t] = p
 
     def get_demand(self, o: Node, d: Node, t: Time):
-        return self._demand[o, d][t] * numpy.exp(1 - self._var_price[o, d][t])
+        return int(self._demand[o, d][t] * numpy.exp(1 - self._var_price[o, d][t]))
 
     def set_prices(self, prices, t: Time):
-        if self._fixed_price:
-            return
         for o in range(self._graph.size()):
             for d in range(self._graph.size()):
                 self._var_price[o, d][t] = prices[o, d]
