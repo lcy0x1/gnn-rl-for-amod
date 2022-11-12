@@ -35,7 +35,8 @@ class A2C(nn.Module):
 
     def __init__(self, env: AMoD, parser: GNNParser, hidden_size=32,
                  eps=np.finfo(np.float32).eps.item(),
-                 device=torch.device("cpu"), fixed_price: bool = False):
+                 device=torch.device("cpu"),
+                 fixed_price: bool = False, gamma_rate: float = 20):
         super(A2C, self).__init__()
         self.env = env
         self.eps = eps
@@ -48,7 +49,7 @@ class A2C(nn.Module):
         self.actor = cls(self.input_size, self.hidden_size, env.nregion)
         self.critic = GNNCritic(self.input_size, self.hidden_size)
         self.obs_parser = parser
-        self.log_rate = nn.Parameter(torch.ones((env.nregion, env.nregion)), requires_grad=True)
+        self.log_rate = nn.Parameter(torch.ones((env.nregion, env.nregion)) * gamma_rate, requires_grad=True)
 
         self.optimizers = self.configure_optimizers()
 
@@ -67,7 +68,7 @@ class A2C(nn.Module):
         # actor: computes concentration parameters of a Dirichlet distribution
         a_out, raw_price = self.actor(x)
         concentration = F.softplus(a_out).reshape(-1) + jitter
-        price = F.softplus(raw_price) + jitter
+        price = F.softplus(raw_price + 1) + jitter
 
         # critic: estimates V(s_t)
         value = self.critic(x)
@@ -141,11 +142,12 @@ class A2C(nn.Module):
         optimizers['c_optimizer'] = torch.optim.Adam(critic_params, lr=1e-3)
         return optimizers
 
-    def save_checkpoint(self, path='ckpt.pth'):
+    def save_checkpoint(self, path='ckpt.pth', episode: int = 0):
         checkpoint = dict()
         checkpoint['model'] = self.state_dict()
         for key, value in self.optimizers.items():
             checkpoint[key] = value.state_dict()
+        checkpoint["episode"] = episode
         torch.save(checkpoint, path)
 
     def load_checkpoint(self, path='ckpt.pth'):
@@ -153,6 +155,7 @@ class A2C(nn.Module):
         self.load_state_dict(checkpoint['model'])
         for key, value in self.optimizers.items():
             self.optimizers[key].load_state_dict(checkpoint[key])
+        return checkpoint['episode'] if 'episode' in checkpoint else 0
 
     def log(self, log_dict, path='log.pth'):
         torch.save(log_dict, path)

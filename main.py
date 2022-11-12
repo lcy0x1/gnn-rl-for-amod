@@ -22,13 +22,14 @@ def view(paths: ResourceLocator):
     display(logs['train_reward'], f"{path}reward.png")
     display(logs['train_served_demand'], f"{path}served_demand.png")
     display(logs['train_reb_cost'], f"{path}reb_cost.png")
+    display(logs['train_price_point'], f"{path}price_point.png")
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='A2C-GNN')
 
     # Simulator parameters
-    parser.add_argument('--seed', type=int, default=10, metavar='S',
+    parser.add_argument('--seed', type=int, default=12345, metavar='S',
                         help='random seed (default: 10)')
     parser.add_argument('--demand_ratio', type=int, default=1, metavar='S',
                         help='demand_ratio (default: 0.5)')
@@ -66,6 +67,8 @@ if __name__ == '__main__':
                         help='name for instance, helps to separate data')
     parser.add_argument('--fixed_price', type=bool, default=False,
                         help='make the environment to ignore price input')
+    parser.add_argument('--resume', type=bool, default=False,
+                        help='start from previous place')
 
     args = parser.parse_args()
 

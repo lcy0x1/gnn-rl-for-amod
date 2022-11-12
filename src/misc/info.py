@@ -71,6 +71,15 @@ class LogInfo:
                 f'{result_type}_idle_vehicle': self.idle_vehicle,
                 f'{result_type}_price_point': self.price_point}
 
+    def from_obj(self, result_type: str, obj):
+        self.reward = obj[f'{result_type}_reward']
+        self.served_demand = obj[f'{result_type}_served_demand']
+        self.reb_cost = obj[f'{result_type}_reb_cost']
+        self.pax_vehicle = obj[f'{result_type}_pax_vehicle']
+        self.reb_vehicle = obj[f'{result_type}_reb_vehicle']
+        self.idle_vehicle = obj[f'{result_type}_idle_vehicle']
+        self.price_point = obj[f'{result_type}_price_point']
+
     def get_desc(self, episode):
         return _format(episode, self.episode_reward, self.episode_served_demand, self.episode_reb_cost,
                        self.episode_pax_vehicle, self.episode_reb_vehicle, self.episode_idle_vehicle,

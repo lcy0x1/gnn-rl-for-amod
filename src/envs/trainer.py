@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import torch
 from tqdm import trange
@@ -17,6 +19,7 @@ class Trainer:
     def __init__(self, args, locator: ResourceLocator):
         self.locator = locator
         self.max_steps = args.max_steps
+        self.resume = args.resume
         self.scenario = JsonRawDataScenario(json_file=locator.env_json_file, sd=args.seed,
                                             demand_ratio=args.demand_ratio,
                                             json_hr=args.json_hr, json_tstep=args.json_tsetp,
@@ -69,9 +72,14 @@ class Trainer:
 
     def train(self):
         # Initialize lists for logging
+        last = 0
+        if self.resume and os.path.exists(self.locator.test_load()):
+            last = self.model.load_checkpoint(path=self.locator.test_load())
+            self.log.from_obj('train', torch.load(self.locator.train_log()))
         epochs = trange(self.max_episodes)  # epoch iterator
         best_reward = -np.inf  # set best reward
         self.model.train()  # set model in train mode
+        epochs.update(last)
         for episode in epochs:
             self.env.reset()  # initialize environment
             for step in range(self.max_steps):
