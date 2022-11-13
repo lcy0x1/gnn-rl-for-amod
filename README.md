@@ -77,3 +77,15 @@ This work was conducted as a joint effort with [Kaidi Yang*](https://sites.googl
 
 ----------
 In case of any questions, bugs, suggestions or improvements, please feel free to contact me at daga@dtu.dk.
+
+Current method:
+- pax
+- set distribution and price
+- reb
+
+Better method:
+- set price
+- pax
+- set distribution
+- reb
+

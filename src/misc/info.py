@@ -71,14 +71,16 @@ class LogInfo:
                 f'{result_type}_idle_vehicle': self.idle_vehicle,
                 f'{result_type}_price_point': self.price_point}
 
-    def from_obj(self, result_type: str, obj):
-        self.reward = obj[f'{result_type}_reward']
-        self.served_demand = obj[f'{result_type}_served_demand']
-        self.reb_cost = obj[f'{result_type}_reb_cost']
-        self.pax_vehicle = obj[f'{result_type}_pax_vehicle']
-        self.reb_vehicle = obj[f'{result_type}_reb_vehicle']
-        self.idle_vehicle = obj[f'{result_type}_idle_vehicle']
-        self.price_point = obj[f'{result_type}_price_point']
+    def from_obj(self, result_type: str, obj, last=-1):
+        if last < 0:
+            last = len(obj[f'{result_type}_reward'])
+        self.reward = obj[f'{result_type}_reward'][0:last]
+        self.served_demand = obj[f'{result_type}_served_demand'][0:last]
+        self.reb_cost = obj[f'{result_type}_reb_cost'][0:last]
+        self.pax_vehicle = obj[f'{result_type}_pax_vehicle'][0:last]
+        self.reb_vehicle = obj[f'{result_type}_reb_vehicle'][0:last]
+        self.idle_vehicle = obj[f'{result_type}_idle_vehicle'][0:last]
+        self.price_point = obj[f'{result_type}_price_point'][0:last]
 
     def get_desc(self, episode):
         return _format(episode, self.episode_reward, self.episode_served_demand, self.episode_reb_cost,

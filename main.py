@@ -1,28 +1,9 @@
 from __future__ import print_function
 import argparse
-import os
-
-import torch
 
 from src.envs.trainer import Trainer
 from src.misc.resource_locator import ResourceLocator
-from src.misc.display import display
-
-
-def check(path: str):
-    if not os.path.exists(path):
-        os.makedirs(path)
-
-
-def view(paths: ResourceLocator):
-    path = paths.save_graphs()
-    check(path)
-    logs = torch.load(paths.train_log())
-    print(f'Data Points: {len(logs["train_reward"])}')
-    display(logs['train_reward'], f"{path}reward.png")
-    display(logs['train_served_demand'], f"{path}served_demand.png")
-    display(logs['train_reb_cost'], f"{path}reb_cost.png")
-    display(logs['train_price_point'], f"{path}price_point.png")
+from src.misc.display import view
 
 
 if __name__ == '__main__':

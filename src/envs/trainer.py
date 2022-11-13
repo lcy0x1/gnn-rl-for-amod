@@ -73,11 +73,12 @@ class Trainer:
     def train(self):
         # Initialize lists for logging
         last = 0
+        best_reward = -np.inf  # set best reward
         if self.resume and os.path.exists(self.locator.test_load()):
             last = self.model.load_checkpoint(path=self.locator.test_load())
-            self.log.from_obj('train', torch.load(self.locator.train_log()))
+            self.log.from_obj('train', torch.load(self.locator.train_log()), last)
+            best_reward = max(self.log.reward)
         epochs = trange(self.max_episodes)  # epoch iterator
-        best_reward = -np.inf  # set best reward
         self.model.train()  # set model in train mode
         epochs.update(last)
         for episode in epochs:
