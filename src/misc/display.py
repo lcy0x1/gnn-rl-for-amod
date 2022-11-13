@@ -18,7 +18,7 @@ def ave(data, rate=0.95):
     acc = 0
     for i in range(len(ans)):
         acc *= rate
-        acc += ans[i]
+        acc += max(0, ans[i])
         ans[i] = acc * (1 - rate)
     return ans
 
@@ -74,8 +74,10 @@ def view(paths: ResourceLocator):
     log_file = torch.load(paths.train_log())
     log = LogInfo()
     log.from_obj('train', log_file)
-    t0 = 8000
-    t1 = len(log.reward)
+    t0 = 0
+    t1 = 9197
+    if t1 == 0:
+        t1 = len(log.reward)
     print(f'Data Points: {t1}')
     display(ave(log.reward)[t0:t1], f"{path}reward.png")
     display(ave(log.served_demand)[t0:t1], f"{path}served_demand.png")
