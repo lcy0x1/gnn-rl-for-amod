@@ -100,9 +100,7 @@ class AMoD:
             i, j = self.edges[k]
             if (i, j) not in self.graph.get_all_edges():
                 continue
-            # TODO: add check for actions respecting constraints? e.g. sum of all action[k]
-            #  starting in "i" <= self.acc[i][t+1] (in addition to our agent action method)
-            # update the number of vehicles
+
             int_reb = int(min(self.data.acc[i][t + 1], reb_action[k]))
             reb_time = self.scenario.get_reb_time(i, j, t)
 
