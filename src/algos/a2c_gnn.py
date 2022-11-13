@@ -142,12 +142,11 @@ class A2C(nn.Module):
         optimizers['c_optimizer'] = torch.optim.Adam(critic_params, lr=1e-3)
         return optimizers
 
-    def save_checkpoint(self, path='ckpt.pth', episode: int = 0):
+    def save_checkpoint(self, path='ckpt.pth'):
         checkpoint = dict()
         checkpoint['model'] = self.state_dict()
         for key, value in self.optimizers.items():
             checkpoint[key] = value.state_dict()
-        checkpoint["episode"] = episode
         torch.save(checkpoint, path)
 
     def load_checkpoint(self, path='ckpt.pth'):
