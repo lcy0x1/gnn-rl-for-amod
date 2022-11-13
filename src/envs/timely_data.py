@@ -5,6 +5,7 @@ import numpy
 from src.misc.graph_wrapper import GraphWrapper
 from src.misc.types import Node, Time
 from src.scenario.scenario import Scenario
+import numpy as np
 
 
 class TimelyData:
@@ -22,6 +23,7 @@ class TimelyData:
         self._demand = defaultdict(dict)  # demand
         self._price = defaultdict(dict)  # price
         self._var_price = defaultdict(lambda: defaultdict(lambda: 1))
+        self._real_demand = defaultdict(dict)
 
         # record only, not for calculation
         self.servedDemand = defaultdict(dict)
@@ -48,7 +50,11 @@ class TimelyData:
             self._price[i, j][t] = p
 
     def get_demand(self, o: Node, d: Node, t: Time):
-        return int(self._demand[o, d][t] * numpy.exp(1 - self._var_price[o, d][t]))
+        if t not in self._real_demand[o, d]:
+            demand = self._demand[o, d][t] * numpy.exp(1 - self._var_price[o, d][t])
+            self._real_demand[o, d][t] = int(round(np.random.poisson(demand)))
+
+        return self._real_demand[o, d][t]
 
     def set_prices(self, prices, t: Time):
         for o in range(self._graph.size()):
