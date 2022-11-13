@@ -122,7 +122,7 @@ class JsonRawDataScenario(Scenario):
         for t in range(0, self.get_final_time() * 2):
             for i, j in self.edges:
                 if (i, j) in self.demand_input and t in self.demand_input[i, j]:
-                    demand[i, j][t] = np.random.poisson(self.demand_input[i, j][t])
+                    demand[i, j][t] = int(round(np.random.poisson(self.demand_input[i, j][t])))
                     price[i, j][t] = self.p[i, j][t]
                 else:
                     demand[i, j][t] = 0
