@@ -51,7 +51,7 @@ class GNNActorFixedPrice(GNNActorBase):
     def __init__(self, in_channels, mid_channels, nregion):
         super().__init__(in_channels, mid_channels)
 
-        self.prices = nn.Parameter(torch.ones((nregion, nregion)), requires_grad=True)
+        self.prices = nn.Parameter(torch.zeros((nregion, nregion)), requires_grad=True)
 
     def forward(self, data):
         _, x1 = self.forward_price(data)

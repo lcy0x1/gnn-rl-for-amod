@@ -11,7 +11,7 @@ from src.scenario.scenario import Scenario
 
 class FixedPriceModelScenario(Scenario):
 
-    def __init__(self, N1=2, N2=4, tf=60, sd=None, ninit=5, tripAttr=None, demand_input=None,
+    def __init__(self, n1=2, n2=4, tf=60, sd=None, ninit=5, tripAttr=None, demand_input=None,
                  demand_ratio=None, trip_length_preference=0.25, grid_travel_time=1, fix_price=True, alpha=0.2,
                  json_file=None, json_hr=9, json_tstep=2, varying_time=False, json_regions=None):
         # trip_length_preference: positive - more shorter trips, negative - more longer trips
@@ -25,31 +25,28 @@ class FixedPriceModelScenario(Scenario):
         super().__init__(json_tstep, tf=tf, seed=sd)
 
         self.varying_time = varying_time
-        self.is_json = False
         self.alpha = alpha
         self.trip_length_preference = trip_length_preference
         self.grid_travel_time = grid_travel_time
         self.demand_input = demand_input
         self.fix_price = fix_price
-        self.N1 = N1
-        self.N2 = N2
-        self.G = nx.complete_graph(N1 * N2)
+        self.N1 = n1
+        self.N2 = n2
+        self.G = nx.complete_graph(n1 * n2)
         self.G = self.G.to_directed()
-        self.demandTime = dict()
-        self.rebTime = dict()
+        self.demand_time = dict()
+        self.reb_time = dict()
         self.edges = list(self.G.edges) + [(i, i) for i in self.G.nodes]
         for i, j in self.edges:
-            self.demandTime[i, j] = defaultdict(
-                lambda: (abs(i // N1 - j // N1) + abs(i % N1 - j % N1)) * grid_travel_time)
-            self.rebTime[i, j] = defaultdict(
-                lambda: (abs(i // N1 - j // N1) + abs(i % N1 - j % N1)) * grid_travel_time)
+            self.demand_time[i, j] = (abs(i // n1 - j // n1) + abs(i % n1 - j % n1)) * grid_travel_time
+            self.reb_time[i, j] = (abs(i // n1 - j // n1) + abs(i % n1 - j % n1)) * grid_travel_time
 
         for n in self.G.nodes:
             self.G.nodes[n]['accInit'] = int(ninit)
 
         self.demand_ratio = defaultdict(list)
 
-        if demand_ratio == None or type(demand_ratio) == list:
+        if demand_ratio is None or type(demand_ratio) == list:
             for i, j in self.edges:
                 if type(demand_ratio) == list:
                     self.demand_ratio[i, j] = list(
@@ -70,20 +67,17 @@ class FixedPriceModelScenario(Scenario):
         if self.fix_price:  # fix price
             self.p = defaultdict(dict)
             for i, j in self.edges:
-                self.p[i, j] = (np.random.rand() * 2 + 1) * (self.demandTime[i, j][0] + 1)
-        if tripAttr != None:  # given demand as a defaultdict(dict)
+                self.p[i, j] = (np.random.rand() * 2 + 1) * (self.demand_time[i, j][0] + 1)
+        if tripAttr is not None:  # given demand as a defaultdict(dict)
             self.tripAttr = deepcopy(tripAttr)
         else:
             self.tripAttr = self.get_random_demand()  # randomly generated demand
 
     def get_demand_time(self, o: Node, d: Node, t: Time) -> Time:
-        return self.demandTime[o, d][t]
+        return self.demand_time[o, d]
 
     def get_reb_time(self, o: Node, d: Node, t: Time) -> Time:
-        return self.rebTime[o, d][t]
-
-    def get_demand_input(self, o: Node, d: Node, t: Time) -> float:
-        return self.demand_input[o, d][t]
+        return self.reb_time[o, d]
 
     def get_graph(self) -> GraphWrapper:
         return GraphWrapper(deepcopy(self.G))
@@ -111,7 +105,7 @@ class FixedPriceModelScenario(Scenario):
                 self.region_demand = region_rand * np.array(self.demand_input)
             for i in self.G.nodes:
                 J = [j for _, j in self.G.out_edges(i)]
-                prob = np.array([np.math.exp(-self.rebTime[i, j][0] * self.trip_length_preference) for j in J])
+                prob = np.array([np.math.exp(-self.reb_time[i, j] * self.trip_length_preference) for j in J])
                 prob = prob / sum(prob)
                 for idx in range(len(J)):
                     self.static_demand[i, J[idx]] = self.region_demand[i] * prob[idx]
@@ -127,13 +121,13 @@ class FixedPriceModelScenario(Scenario):
         # generating demand and prices
         if self.fix_price:
             p = self.p
-        for t in range(0, self.tf * 2):
+        for t in range(0, self._tf * 2):
             for i, j in self.edges:
                 demand[i, j][t] = np.random.poisson(self.static_demand[i, j] * self.demand_ratio[i, j][t])
                 if self.fix_price:
                     price[i, j][t] = p[i, j]
                 else:
-                    price[i, j][t] = min(3, np.random.exponential(2) + 1) * self.demandTime[i, j][t]
+                    price[i, j][t] = min(3, np.random.exponential(2) + 1) * self.demand_time[i, j]
                 tripAttr.append((i, j, t, demand[i, j][t], price[i, j][t]))
 
         return tripAttr

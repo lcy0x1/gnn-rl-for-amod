@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-from src.misc.info import LogInfo
+from src.misc.info import LogInfo, LogEntry
 from src.misc.resource_locator import ResourceLocator
 
 
@@ -15,7 +15,7 @@ def check(path: str):
 
 def ave(data, rate=0.95):
     ans = np.array(data)
-    acc = 0
+    acc = ans[0] / (1 - rate)
     for i in range(len(ans)):
         acc *= rate
         acc += max(0, ans[i])
@@ -75,12 +75,11 @@ def view(paths: ResourceLocator):
     log = LogInfo()
     log.from_obj('train', log_file)
     t0 = 0
-    t1 = 9197
+    t1 = 0
     if t1 == 0:
-        t1 = len(log.reward)
+        t1 = len(log.lists[LogEntry.reward])
     print(f'Data Points: {t1}')
-    display(ave(log.reward)[t0:t1], f"{path}reward.png")
-    display(ave(log.served_demand)[t0:t1], f"{path}served_demand.png")
-    display(ave(log.reb_cost)[t0:t1], f"{path}reb_cost.png")
-    display(ave(log.price_point)[t0:t1], f"{path}price_point.png")
-    display_sum([log.reb_vehicle[t0:t1], log.pax_vehicle[t0:t1], log.idle_vehicle[t0:t1]], f"{path}percentages.png")
+    display(ave(log.lists[LogEntry.reward])[t0:t1], f"{path}reward.png")
+    display(ave(log.lists[LogEntry.served_demand])[t0:t1], f"{path}served_demand.png")
+    display(ave(log.lists[LogEntry.reb_cost])[t0:t1], f"{path}reb_cost.png")
+    display(ave(log.lists[LogEntry.price_point])[t0:t1], f"{path}price_point.png")

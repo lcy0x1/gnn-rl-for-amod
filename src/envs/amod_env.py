@@ -70,7 +70,8 @@ class AMoD:
         for k in range(len(self.edges)):
             i, j = self.edges[k]
             int_pax = int(min(self.data.acc[i][t + 1], pax_action[k]))
-            if pax_action[k] == 0:
+            self.info.missed_demand += self.data.get_demand(i, j, t) - int_pax
+            if int_pax == 0:
                 continue
             demand_time = self.scenario.get_demand_time(i, j, t)
 
@@ -134,6 +135,3 @@ class AMoD:
         self.reward = 0
         self.data = TimelyData(self.scenario, self.graph)
         return self
-
-    def get_demand_input(self, i, j, t):
-        return self.scenario.get_demand_input(i, j, t)

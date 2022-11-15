@@ -49,9 +49,16 @@ class TimelyData:
             self._demand[i, j][t] = d
             self._price[i, j][t] = p
 
+    def get_principal_demand(self, o: Node, d: Node, t: Time):
+        if o == d:
+            return 0
+        return self._demand[o, d][t]
+
     def get_demand(self, o: Node, d: Node, t: Time):
+        if o == d:
+            return 0
         if t not in self._real_demand[o, d]:
-            demand = self._demand[o, d][t] * numpy.exp(1 - self._var_price[o, d][t])
+            demand = self._demand[o, d][t] * np.exp(1 - self._var_price[o, d][t])
             self._real_demand[o, d][t] = int(round(np.random.poisson(demand)))
 
         return self._real_demand[o, d][t]

@@ -29,7 +29,7 @@ class GNNParser:
                 torch.tensor([[(self.env.data.acc[n][time + 1] + self.env.data.dacc[n][t]) * self.s
                                for n in range(size)] for t in range(time + 1, time + self.vehicle_forecast + 1)])
                     .view(1, self.vehicle_forecast, size).float(),
-                torch.tensor([[sum([(self.env.get_demand_input(i, j, t)) *
+                torch.tensor([[sum([(self.env.data.get_principal_demand(i, j, t)) *
                                     (self.env.data.get_price(i, j, t)) * self.s
                                     for j in range(size)]) for i in range(size)]
                               for t in range(time + 1, time + self.demand_forecast + 1)])

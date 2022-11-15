@@ -8,7 +8,7 @@ from src.algos.a2c_gnn import A2C
 from src.algos.obs_parser import GNNParser
 from src.algos.cplex_handle import CPlexHandle
 from src.envs.amod_env import AMoD
-from src.misc.info import LogInfo
+from src.misc.info import LogInfo, LogEntry
 from src.misc.resource_locator import ResourceLocator
 from src.misc.utils import dictsum
 from src.scenario.fixed_price.json_raw_data import JsonRawDataScenario
@@ -40,7 +40,7 @@ class Trainer:
     def env_step(self):
         # take matching step (Step 1 in paper)
         obs, pax_reward, done, info = self.env.pax_step(self.cplex)
-        self.log.episode_reward += pax_reward
+        self.log.add_reward(pax_reward)
         # use GNN-RL policy (Step 2 in paper)
         action_rl, prices = self.model.select_action(obs)
         self.env.data.set_prices(prices, self.env.time + 1)
@@ -66,7 +66,7 @@ class Trainer:
 
         # Take action in environment
         _, reb_reward, done, info = self.env.reb_step(reb_action)
-        self.log.episode_reward += reb_reward
+        self.log.add_reward(reb_reward)
         self.log.accept(info)
         return done
 
@@ -77,7 +77,7 @@ class Trainer:
         if self.resume and os.path.exists(self.locator.test_load()):
             last = self.model.load_checkpoint(path=self.locator.test_load())
             self.log.from_obj('train', torch.load(self.locator.train_log()), last)
-            best_reward = max(self.log.reward)
+            best_reward = max(self.log.lists[LogEntry.reward])
         epochs = trange(self.max_episodes)  # epoch iterator
         self.model.train()  # set model in train mode
         epochs.update(last)
@@ -85,15 +85,15 @@ class Trainer:
             self.env.reset()  # initialize environment
             for step in range(self.max_steps):
                 done = self.env_step()
-                self.model.rewards.append(self.log.episode_reward)
+                self.model.rewards.append(self.log.get_reward())
                 if done:
                     break
             self.model.training_step()
             self.log.finish(self.env.time)
             epochs.set_description(self.log.get_desc(episode))
-            if self.log.episode_reward >= best_reward:
+            if self.log.get_reward() >= best_reward:
                 self.model.save_checkpoint(path=self.locator.save_best())
-                best_reward = self.log.episode_reward
+                best_reward = self.log.get_reward()
             self.log.append()
             self.model.log(self.log.to_obj('train'), path=self.locator.train_log())
 

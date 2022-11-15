@@ -4,7 +4,7 @@ import argparse
 from src.envs.trainer import Trainer
 from src.misc.resource_locator import ResourceLocator
 from src.misc.display import view
-
+from src.scenario.evaluator import evaluate_env
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='A2C-GNN')
@@ -12,7 +12,7 @@ if __name__ == '__main__':
     # Simulator parameters
     parser.add_argument('--seed', type=int, default=12345, metavar='S',
                         help='random seed (default: 10)')
-    parser.add_argument('--demand_ratio', type=int, default=1, metavar='S',
+    parser.add_argument('--demand_ratio', type=int, default=0.5, metavar='S',
                         help='demand_ratio (default: 0.5)')
     parser.add_argument('--json_hr', type=int, default=7, metavar='S',
                         help='json_hr (default: 7)')
@@ -22,8 +22,9 @@ if __name__ == '__main__':
                         help='cost of rebalancing (default: 0.5)')
 
     # Model parameters
-    parser.add_argument('--view', type=bool, default=False,
-                        help='view results')
+    parser.add_argument('--view', type=str, default='none',
+                        help='view results: none for nothing, train for training results. '
+                             'scenario for environment inspection (default: none)')
     parser.add_argument('--test', type=bool, default=False,
                         help='activates test mode for agent evaluation')
     parser.add_argument('--cplexpath', type=str, default='/Applications/CPLEX_Studio221/opl/bin/x86-64_osx/',
@@ -54,8 +55,11 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     locator = ResourceLocator(args.directory, args.instance_suffix)
-    if args.view:
+    if args.view == 'train':
         view(locator)
+    elif args.view == 'scenario':
+        trainer = Trainer(args, locator)
+        evaluate_env(trainer.scenario)
     else:
         trainer = Trainer(args, locator)
         if not args.test:

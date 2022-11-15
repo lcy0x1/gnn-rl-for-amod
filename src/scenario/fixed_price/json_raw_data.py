@@ -41,7 +41,7 @@ class JsonRawDataScenario(Scenario):
         self.p = defaultdict(dict)
         self.alpha = 0
         self.demand_time = defaultdict(dict)
-        self.rebTime = defaultdict(dict)
+        self.reb_time = defaultdict(dict)
         self.init_acc = defaultdict(int)
         self.json_start = json_hr * 60
         self.edges = list(self.G.edges) + [(i, i) for i in self.G.nodes]
@@ -78,11 +78,11 @@ class JsonRawDataScenario(Scenario):
                 t0 = int((hr * 60 - self.json_start) // json_tstep)
                 t1 = int((hr * 60 + 60 - self.json_start) // json_tstep)
                 for t in range(t0, t1):
-                    self.rebTime[o, d][t] = max(int(round(rt / json_tstep)), 1)
+                    self.reb_time[o, d][t] = max(int(round(rt / json_tstep)), 1)
             else:
                 if hr == json_hr:
                     for t in range(0, tf + 1):
-                        self.rebTime[o, d][t] = max(int(round(rt / json_tstep)), 1)
+                        self.reb_time[o, d][t] = max(int(round(rt / json_tstep)), 1)
 
         for item in data["totalAcc"]:
             hr, acc = item["hour"], item["acc"]
@@ -98,10 +98,7 @@ class JsonRawDataScenario(Scenario):
         return self.demand_time[o, d][t]
 
     def get_reb_time(self, o: Node, d: Node, t: Time) -> Time:
-        return self.rebTime[o, d][t]
-
-    def get_demand_input(self, o: Node, d: Node, t: Time) -> float:
-        return self.demand_input[o, d][t]
+        return self.reb_time[o, d][t]
 
     def get_graph(self) -> GraphWrapper:
         return GraphWrapper(deepcopy(self.G))
