@@ -6,20 +6,25 @@ from src.misc.resource_locator import ResourceLocator
 from src.misc.display import view
 from src.scenario.evaluator import evaluate_env
 
-if __name__ == '__main__':
+
+def collect_arguments():
     parser = argparse.ArgumentParser(description='A2C-GNN')
 
     # Simulator parameters
     parser.add_argument('--seed', type=int, default=12345, metavar='S',
                         help='random seed (default: 10)')
-    parser.add_argument('--demand_ratio', type=int, default=0.5, metavar='S',
-                        help='demand_ratio (default: 0.5)')
-    parser.add_argument('--json_hr', type=int, default=7, metavar='S',
+    parser.add_argument('--demand_ratio', type=int, default=8, metavar='S',
+                        help='demand_ratio (default: 8)')
+    parser.add_argument('--json_hr', type=int, default=0, metavar='S',
                         help='json_hr (default: 7)')
-    parser.add_argument('--json_tsetp', type=int, default=3, metavar='S',
+    parser.add_argument('--json_tstep', type=int, default=3, metavar='S',
                         help='minutes per timestep (default: 3min)')
     parser.add_argument('--beta', type=int, default=0.5, metavar='S',
                         help='cost of rebalancing (default: 0.5)')
+    parser.add_argument('--time_skip', type=int, default=10,
+                        help='time skip per step to fast forward training')
+    parser.add_argument('--max_steps', type=int, default=48, metavar='N',
+                        help='number of steps per episode (default: T=60)')
 
     # Model parameters
     parser.add_argument('--view', type=str, default='none',
@@ -35,8 +40,6 @@ if __name__ == '__main__':
                         help='defines directory where to save files')
     parser.add_argument('--max_episodes', type=int, default=20000, metavar='N',
                         help='number of episodes to train agent (default: 16k)')
-    parser.add_argument('--max_steps', type=int, default=60, metavar='N',
-                        help='number of steps per episode (default: T=60)')
     parser.add_argument('--no-cuda', type=bool, default=True,
                         help='disables CUDA training')
 
@@ -49,14 +52,19 @@ if __name__ == '__main__':
                         help='name for instance, helps to separate data')
     parser.add_argument('--fixed_price', type=bool, default=False,
                         help='make the environment to ignore price input')
-    parser.add_argument('--resume', type=bool, default=False,
+    parser.add_argument('--pre_train', type=str, default='none',
                         help='start from previous place')
 
-    args = parser.parse_args()
+    return parser.parse_args()
 
+
+if __name__ == '__main__':
+    args = collect_arguments()
     locator = ResourceLocator(args.directory, args.instance_suffix)
     if args.view == 'train':
-        view(locator)
+        view(locator, args.view)
+    elif args.view == 'test':
+        view(locator, args.view)
     elif args.view == 'scenario':
         trainer = Trainer(args, locator)
         evaluate_env(trainer.scenario)

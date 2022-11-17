@@ -84,7 +84,7 @@ class LogInfo:
         self.episode_data[LogEntry.pax_vehicle] += info.pax_vehicle / info.total_acc
         self.episode_data[LogEntry.reb_vehicle] += info.reb_vehicle / info.total_acc
         self.episode_data[LogEntry.idle_vehicle] += info.idle_vehicle / info.total_acc
-        self.episode_data[LogEntry.price_point] += info.revenue / info.pax_vehicle
+        self.episode_data[LogEntry.price_point] += 0 if info.pax_vehicle == 0 else info.revenue / info.pax_vehicle
 
     def finish(self, step: int):
         self.episode_data[LogEntry.pax_vehicle] /= step

@@ -19,11 +19,11 @@ class Trainer:
     def __init__(self, args, locator: ResourceLocator):
         self.locator = locator
         self.max_steps = args.max_steps
-        self.resume = args.resume
+        self.pre_train = args.pre_train
         self.scenario = JsonRawDataScenario(json_file=locator.env_json_file, sd=args.seed,
                                             demand_ratio=args.demand_ratio,
-                                            json_hr=args.json_hr, json_tstep=args.json_tsetp,
-                                            tf=self.max_steps)
+                                            json_hr=args.json_hr, json_tstep=args.json_tstep,
+                                            tf=self.max_steps, time_skip=args.time_skip)
         self.env = AMoD(self.scenario, beta=args.beta)
         args.cuda = not args.no_cuda and torch.cuda.is_available()
         device = torch.device("cuda" if args.cuda else "cpu")
@@ -74,10 +74,8 @@ class Trainer:
         # Initialize lists for logging
         last = 0
         best_reward = -np.inf  # set best reward
-        if self.resume and os.path.exists(self.locator.test_load()):
-            last = self.model.load_checkpoint(path=self.locator.test_load())
-            self.log.from_obj('train', torch.load(self.locator.train_log()), last)
-            best_reward = max(self.log.lists[LogEntry.reward])
+        if self.pre_train != 'none' and os.path.exists(self.locator.pre_train(self.pre_train)):
+            last = self.model.load_checkpoint(path=self.locator.pre_train(self.pre_train))
         epochs = trange(self.max_episodes)  # epoch iterator
         self.model.train()  # set model in train mode
         epochs.update(last)
@@ -100,16 +98,20 @@ class Trainer:
     def test(self):
         self.model.load_checkpoint(path=self.locator.test_load())
         self.model.train(False)
-        epochs = trange(self.max_episodes)  # epoch iterator
+        epochs = trange(self.max_steps)  # epoch iterator
         # Initialize lists for logging
+        reward = 0
+
+        self.env.reset()
         for episode in epochs:
-            self.env.reset()
-            for step in range(self.max_steps):
-                done = self.env_step()
-                if done:
-                    break
-            self.log.finish(self.env.time)
+            done = self.env_step()
+            reward += self.log.get_reward()
+            self.log.finish(1)
             self.log.append()
             epochs.set_description(self.log.get_average(episode))
             # Log KPIs
-            self.model.log(self.log.to_obj('test'), path=self.locator.test_log())
+            if done:
+                break
+
+        print(f'Reward: {reward}')
+        self.model.log(self.log.to_obj('test'), path=self.locator.test_log())

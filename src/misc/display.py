@@ -68,18 +68,20 @@ def display_sum(data, dst):
     fig.savefig(dst)
 
 
-def view(paths: ResourceLocator):
-    path = paths.save_graphs()
+def view(paths: ResourceLocator, source: str):
+    path = paths.save_graphs(source)
     check(path)
-    log_file = torch.load(paths.train_log())
+    log_file = torch.load(paths.train_log() if source == 'train' else paths.test_log())
     log = LogInfo()
-    log.from_obj('train', log_file)
+    log.from_obj(source, log_file)
     t0 = 0
     t1 = 0
     if t1 == 0:
         t1 = len(log.lists[LogEntry.reward])
     print(f'Data Points: {t1}')
     display(ave(log.lists[LogEntry.reward])[t0:t1], f"{path}reward.png")
+    display(ave(log.lists[LogEntry.revenue])[t0:t1], f"{path}revenue.png")
     display(ave(log.lists[LogEntry.served_demand])[t0:t1], f"{path}served_demand.png")
+    display(ave(log.lists[LogEntry.missed_demand])[t0:t1], f"{path}missed_demand.png")
     display(ave(log.lists[LogEntry.reb_cost])[t0:t1], f"{path}reb_cost.png")
     display(ave(log.lists[LogEntry.price_point])[t0:t1], f"{path}price_point.png")
