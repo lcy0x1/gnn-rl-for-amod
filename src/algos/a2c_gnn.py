@@ -15,6 +15,7 @@ This file contains the A2C-GNN specifications. In particular, we implement:
 import numpy as np
 
 from torch.distributions import Dirichlet, Gamma
+from torch.nn import functional as F
 from collections import namedtuple
 
 from src.algos.gnn_networks import *
@@ -36,7 +37,7 @@ class A2C(nn.Module):
     def __init__(self, env: AMoD, parser: GNNParser, hidden_size=32,
                  eps=np.finfo(np.float32).eps.item(),
                  device=torch.device("cpu"),
-                 fixed_price: bool = False, gamma_rate: float = 20):
+                 cls=GNNActorVariablePrice, gamma_rate: float = 5):
         super(A2C, self).__init__()
         self.env = env
         self.eps = eps
@@ -44,12 +45,9 @@ class A2C(nn.Module):
         self.hidden_size = hidden_size
         self.device = device
 
-        cls = GNNActorFixedPrice if fixed_price else GNNActorVariablePrice
-
-        self.actor = cls(self.input_size, self.hidden_size, env.nregion)
+        self.actor = cls(self.input_size, self.hidden_size, env.nregion, gamma_rate)
         self.critic = GNNCritic(self.input_size, self.hidden_size)
         self.obs_parser = parser
-        self.log_rate = nn.Parameter(torch.ones((env.nregion, env.nregion)) * gamma_rate, requires_grad=True)
 
         self.optimizers = self.configure_optimizers()
 
@@ -84,7 +82,7 @@ class A2C(nn.Module):
             return list(vehicle_action.detach().cpu().numpy()), price_mat.detach().cpu().numpy()
 
         vehicle_action = vehicle_dist.sample()
-        price_dist = Gamma(price_mat * self.log_rate, self.log_rate)
+        price_dist = Gamma(price_mat * self.actor.log_rate, self.actor.log_rate)
         price_action = price_dist.sample()
 
         self.saved_actions.append(SavedAction(
@@ -151,9 +149,10 @@ class A2C(nn.Module):
 
     def load_checkpoint(self, path='ckpt.pth'):
         checkpoint = torch.load(path)
-        self.load_state_dict(checkpoint['model'])
-        for key, value in self.optimizers.items():
-            self.optimizers[key].load_state_dict(checkpoint[key])
+        incp = self.load_state_dict(checkpoint['model'], strict=False)
+        if not incp.missing_keys and not incp.unexpected_keys:
+            for key, value in self.optimizers.items():
+                self.optimizers[key].load_state_dict(checkpoint[key])
         return checkpoint['episode'] if 'episode' in checkpoint else 0
 
     def log(self, log_dict, path='log.pth'):

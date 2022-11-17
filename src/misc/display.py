@@ -18,7 +18,7 @@ def ave(data, rate=0.95):
     acc = ans[0] / (1 - rate)
     for i in range(len(ans)):
         acc *= rate
-        acc += max(0, ans[i])
+        acc += ans[i]
         ans[i] = acc * (1 - rate)
     return ans
 
@@ -76,15 +76,18 @@ def view(paths: ResourceLocator, source: str):
     log_file = torch.load(paths.train_log() if source == 'train' else paths.test_log())
     log = LogInfo()
     log.from_obj(source, log_file)
-    t0 = 100
+    t0 = 0
     t1 = 0
     if t1 == 0:
         t1 = len(log.lists[LogEntry.reward])
     print(f'Data Points: {t1}')
-    func = ave
+    func = ave if source == 'train' else lambda e: e
     display(func(log.lists[LogEntry.reward])[t0:t1], f"{path}reward.png")
     display(func(log.lists[LogEntry.revenue])[t0:t1], f"{path}revenue.png")
     display_sum([func(log.lists[LogEntry.served_demand])[t0:t1],
                  func(log.lists[LogEntry.missed_demand])[t0:t1]], f"{path}served_demand.png")
     display(func(log.lists[LogEntry.reb_cost])[t0:t1], f"{path}reb_cost.png")
     display(func(log.lists[LogEntry.price_point])[t0:t1], f"{path}price_point.png")
+    display_sum([func(log.lists[LogEntry.pax_vehicle])[t0:t1],
+                 func(log.lists[LogEntry.reb_vehicle])[t0:t1],
+                 func(log.lists[LogEntry.idle_vehicle])[t0:t1]], f"{path}percentages.png")

@@ -1,17 +1,33 @@
 import os
 
-import numpy as np
 import torch
 from tqdm import trange
 
 from src.algos.a2c_gnn import A2C
+from src.algos.gnn_imitate import GNNActorImitateReference
+from src.algos.gnn_networks import GNNActorVariablePrice, GNNActorFixedPrice
 from src.algos.obs_parser import GNNParser
 from src.algos.cplex_handle import CPlexHandle
 from src.envs.amod_env import AMoD
-from src.misc.info import LogInfo, LogEntry
+from src.misc.info import LogInfo
 from src.misc.resource_locator import ResourceLocator
 from src.misc.utils import dictsum
 from src.scenario.fixed_price.json_raw_data import JsonRawDataScenario
+
+
+class RunningAverage:
+
+    def __init__(self, rate=0.95):
+        self.rate = rate
+        self.best = 0
+        self.current = 0
+
+    def accept(self, val):
+        self.current = self.current * self.rate + val
+        if self.current > self.best:
+            self.best = self.current
+            return True
+        return False
 
 
 class Trainer:
@@ -27,12 +43,13 @@ class Trainer:
         self.env = AMoD(self.scenario, beta=args.beta)
         args.cuda = not args.no_cuda and torch.cuda.is_available()
         device = torch.device("cuda" if args.cuda else "cpu")
-        self.model = A2C(env=self.env,
-                         parser=GNNParser(self.env,
-                                          vehicle_forecast=args.vehicle_forecast,
-                                          demand_forecast=args.demand_forecast
-                                          ),
-                         fixed_price=args.fixed_price).to(device)
+        cls = GNNActorFixedPrice if args.actor_type == 'fixed' else \
+            GNNActorImitateReference if args.actor_type == 'imitate' else GNNActorVariablePrice
+        parser = GNNParser(self.env,
+                           vehicle_forecast=args.vehicle_forecast,
+                           demand_forecast=args.demand_forecast)
+        self.model = A2C(env=self.env, cls=cls,
+                         parser=parser).to(device)
         self.cplex = CPlexHandle(locator.cplex_log_folder, args.cplexpath, platform=args.platform)
         self.log = LogInfo()
         self.max_episodes = args.max_episodes
@@ -73,7 +90,9 @@ class Trainer:
     def train(self):
         # Initialize lists for logging
         last = 0
-        best_reward = -np.inf  # set best reward
+
+        running_average = RunningAverage()
+
         if self.pre_train != 'none' and os.path.exists(self.locator.pre_train(self.pre_train)):
             last = self.model.load_checkpoint(path=self.locator.pre_train(self.pre_train))
         epochs = trange(self.max_episodes)  # epoch iterator
@@ -89,9 +108,8 @@ class Trainer:
             self.model.training_step()
             self.log.finish(self.env.time)
             epochs.set_description(self.log.get_desc(episode))
-            if self.log.get_reward() >= best_reward:
+            if running_average.accept(self.log.get_reward()):
                 self.model.save_checkpoint(path=self.locator.save_best())
-                best_reward = self.log.get_reward()
             self.log.append()
             self.model.log(self.log.to_obj('train'), path=self.locator.train_log())
 
