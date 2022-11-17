@@ -57,11 +57,13 @@ def display_sum(data, dst):
     ytick = 1
     n = len(data[0])
     cul = 0
+    ymax = 0
     for d in data:
         cul = np.array(d) + cul
-        ax.plot(range(n), d, linewidth=2.0)
+        ymax = np.max(cul)
+        ax.plot(range(n), cul, linewidth=2.0)
 
-    ax.set(xlim=(0, n), ylim=(0, 1))
+    ax.set(xlim=(0, n), ylim=(0, ymax * 1.2))
 
     ax.grid()
 
@@ -74,14 +76,15 @@ def view(paths: ResourceLocator, source: str):
     log_file = torch.load(paths.train_log() if source == 'train' else paths.test_log())
     log = LogInfo()
     log.from_obj(source, log_file)
-    t0 = 0
+    t0 = 100
     t1 = 0
     if t1 == 0:
         t1 = len(log.lists[LogEntry.reward])
     print(f'Data Points: {t1}')
-    display(ave(log.lists[LogEntry.reward])[t0:t1], f"{path}reward.png")
-    display(ave(log.lists[LogEntry.revenue])[t0:t1], f"{path}revenue.png")
-    display(ave(log.lists[LogEntry.served_demand])[t0:t1], f"{path}served_demand.png")
-    display(ave(log.lists[LogEntry.missed_demand])[t0:t1], f"{path}missed_demand.png")
-    display(ave(log.lists[LogEntry.reb_cost])[t0:t1], f"{path}reb_cost.png")
-    display(ave(log.lists[LogEntry.price_point])[t0:t1], f"{path}price_point.png")
+    func = ave
+    display(func(log.lists[LogEntry.reward])[t0:t1], f"{path}reward.png")
+    display(func(log.lists[LogEntry.revenue])[t0:t1], f"{path}revenue.png")
+    display_sum([func(log.lists[LogEntry.served_demand])[t0:t1],
+                 func(log.lists[LogEntry.missed_demand])[t0:t1]], f"{path}served_demand.png")
+    display(func(log.lists[LogEntry.reb_cost])[t0:t1], f"{path}reb_cost.png")
+    display(func(log.lists[LogEntry.price_point])[t0:t1], f"{path}price_point.png")

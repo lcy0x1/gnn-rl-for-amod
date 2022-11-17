@@ -24,7 +24,7 @@ class JsonRawDataScenario(Scenario):
         # alpha: parameter for uniform distribution of demand levels - [1-alpha, 1+alpha] * demand_input
         super().__init__(json_tstep, seed=sd, tf=tf)
 
-        assert json_hr + tf * json_tstep * time_skip <= 1440, "time exceeds maximum"
+        assert json_hr * 60 + tf * json_tstep * time_skip <= 1440, "time exceeds maximum"
 
         with open(json_file, "r") as file:
             data = json.load(file)

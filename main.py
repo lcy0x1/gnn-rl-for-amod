@@ -16,7 +16,7 @@ def collect_arguments():
     parser.add_argument('--demand_ratio', type=int, default=8, metavar='S',
                         help='demand_ratio (default: 8)')
     parser.add_argument('--json_hr', type=int, default=0, metavar='S',
-                        help='json_hr (default: 7)')
+                        help='json_hr (default: 0)')
     parser.add_argument('--json_tstep', type=int, default=3, metavar='S',
                         help='minutes per timestep (default: 3min)')
     parser.add_argument('--beta', type=int, default=0.5, metavar='S',
