@@ -3,8 +3,8 @@ from enum import Enum
 
 from numpy import mean
 
-LogEntry = Enum('LogEntry', ['gradient', 'reward', 'revenue', 'served_demand', 'missed_demand', 'reb_cost',
-                             'price_point', 'pax_vehicle', 'reb_vehicle', 'idle_vehicle'])
+LogEntry = Enum('LogEntry', ['value_loss', 'policy_loss', 'reward', 'revenue', 'served_demand', 'missed_demand',
+                             'reb_cost', 'price_point', 'pax_vehicle', 'reb_vehicle', 'idle_vehicle'])
 
 
 class StepInfo:
@@ -32,7 +32,8 @@ class StepInfo:
 
 
 def _format(i, d):
-    gr = d(LogEntry.gradient)
+    pl = d(LogEntry.policy_loss)
+    vl = d(LogEntry.value_loss)
     rw = d(LogEntry.reward)
     rn = d(LogEntry.revenue)
     rc = d(LogEntry.reb_cost)
@@ -44,9 +45,15 @@ def _format(i, d):
     iv = d(LogEntry.idle_vehicle)
 
     sdr = sd / (sd + md) * 100
-    return f"Episode {i + 1} | Gradient: {gr:.2f} | Reward: {rw:.2f} | Revenue: {rn:.2f} | " \
-           f"ServedDemand: {sdr:.2f}% | Reb. Cost: {rc:.2f} | " \
-           f"Pax/Reb/Idle Vehicle: {pv * 100:.2f}%/{rv * 100:.2f}%/{iv * 100:.2f}% | PricePoint: {pr:.2f}"
+    return f"Episode {i + 1} | " \
+           f"Policy Loss: {pl:.2f} | " \
+           f"Value Loss: {vl:.2f} | " \
+           f"Reward: {rw:.2f} | " \
+           f"Revenue: {rn:.2f} | " \
+           f"ServedDemand: {sdr:.2f}% | " \
+           f"Reb. Cost: {rc:.2f} | " \
+           f"Pax/Reb/Idle Vehicle: {pv * 100:.2f}%/{rv * 100:.2f}%/{iv * 100:.2f}% | " \
+           f"PricePoint: {pr:.2f}"
 
 
 class LogInfo:

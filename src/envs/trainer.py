@@ -1,11 +1,12 @@
 import os
+from typing import Type
 
 import torch
 from tqdm import trange
 
 from src.algos.a2c_gnn import A2C
 from src.algos.gnn_imitate import GNNActorImitateReference
-from src.algos.gnn_actor import GNNActorVariablePrice, GNNActorFixedPrice
+from src.algos.gnn_actor import GNNActorVariablePrice, GNNActorFixedPrice, GNNActorBase
 from src.algos.obs_parser import GNNParser
 from src.algos.cplex_handle import CPlexHandle
 from src.envs.amod_env import AMoD
@@ -16,13 +17,13 @@ from src.misc.resource_locator import ResourceLocator
 from src.scenario.fixed_price.json_raw_data import JsonRawDataScenario
 
 
-def get_actor_class(cls):
+def get_actor_class(cls) -> Type[GNNActorBase]:
     return GNNActorFixedPrice if cls == 'fixed' else \
         GNNActorImitateReference if cls == 'imitate-test' else \
-        GNNActorVariablePrice
+            GNNActorVariablePrice
 
 
-def get_stepper_class(cls):
+def get_stepper_class(cls) -> Type[Stepper]:
     return ImitateStepper if cls == 'imitate' else Stepper
 
 
@@ -64,12 +65,13 @@ class Trainer:
         for episode in epochs:
             self.env.reset()  # initialize environment
             for step in range(self.max_steps):
-                done, backprop = self.stepper.env_step()
-                self.log.episode_data[LogEntry.gradient] += backprop
-                self.model.rewards.append(backprop) # TODO turn it into a method, split actor and critic
+                done, actor_reward, critic_reward = self.stepper.env_step()
+                self.model.save_rewards(actor_reward, critic_reward)
                 if done:
                     break
-            self.model.training_step()
+            p_loss, v_loss = self.model.training_step()
+            self.log.episode_data[LogEntry.policy_loss] = p_loss
+            self.log.episode_data[LogEntry.value_loss] = v_loss
             self.log.finish(self.env.time)
             epochs.set_description(self.log.get_desc(episode))
             if running_average.accept(self.log.get_reward()):
@@ -86,7 +88,7 @@ class Trainer:
 
         self.env.reset()
         for episode in epochs:
-            done = self.stepper.env_step()
+            self.stepper.env_step()
             reward += self.log.get_reward()
             self.log.finish(1)
             self.log.append()

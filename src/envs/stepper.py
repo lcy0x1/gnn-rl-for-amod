@@ -22,7 +22,7 @@ class Stepper:
         acc, price = self.model.select_action(obs)
         return acc, price
 
-    def env_step(self) -> (bool, float):
+    def env_step(self) -> (bool, float, float):
         # take matching step (Step 1 in paper)
         obs, pax_reward, done, info = self.env.pax_step(self.cplex)
         self.log.add_reward(pax_reward)
@@ -53,7 +53,7 @@ class Stepper:
         _, reb_reward, done, info = self.env.reb_step(reb_action)
         self.log.add_reward(reb_reward)
         self.log.accept(info)
-        return done, self.log.get_reward()
+        return done, self.log.get_reward(), self.log.get_reward()
 
 
 class ImitateStepper(Stepper):
@@ -71,5 +71,5 @@ class ImitateStepper(Stepper):
         return acc, price
 
     def env_step(self):
-        done, _ = super().env_step()
-        return done, self.diff
+        done, _, reward = super().env_step()
+        return done, self.diff, reward

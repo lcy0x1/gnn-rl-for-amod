@@ -22,13 +22,10 @@ from collections import namedtuple
 from src.algos.gnn_critic import GNNCritic
 from src.algos.gnn_actor import *
 from src.algos.obs_parser import GNNParser
+from src.algos.rl_optimizers import ActorOptim, CriticOptim
 from src.envs.amod_env import AMoD
 
 SavedAction = namedtuple('SavedAction', ['log_prob', 'value'])
-args = namedtuple('args', ('render', 'gamma', 'log_interval'))
-args.render = True
-args.gamma = 0.97
-args.log_interval = 10
 
 
 class A2C(nn.Module):
@@ -51,11 +48,10 @@ class A2C(nn.Module):
         self.critic = GNNCritic(self.input_size, self.hidden_size)
         self.obs_parser = parser
 
-        self.optimizers = self.configure_optimizers()
+        self.actor_optim, self.critic_optim = self.configure_optimizers()
 
         # action & reward buffer
         self.saved_actions = []
-        self.rewards = []
         self.to(self.device)
 
     def forward(self, obs, jitter=1e-20):
@@ -94,67 +90,37 @@ class A2C(nn.Module):
 
         return list(vehicle_action.cpu().numpy()), price_action.cpu().numpy()
 
+    def save_rewards(self, ar, cr):
+        self.actor_optim.append_reward(ar)
+        self.critic_optim.append_reward(cr)
+
     def training_step(self):
-        R = 0
-        saved_actions = self.saved_actions
-        policy_losses = []  # list to save actor (policy) loss
-        value_losses = []  # list to save critic (value) loss
-        returns = []  # list to save the true values
-
-        # calculate the true value using rewards returned from the environment
-        for r in self.rewards[::-1]:
-            # calculate the discounted value
-            R = r + args.gamma * R
-            returns.insert(0, R)
-
-        returns = torch.tensor(returns)
-        returns = (returns - returns.mean()) / (returns.std() + self.eps)
-
-        for (log_prob, value), R in zip(saved_actions, returns):
-            advantage = R - value.item()
-
-            # calculate actor (policy) loss 
-            policy_losses.append(-log_prob * advantage)
-
-            # calculate critic (value) loss using L1 smooth loss
-            value_losses.append(F.smooth_l1_loss(value, torch.tensor([R]).to(self.device)))
-
-        # take gradient steps
-        self.optimizers['a_optimizer'].zero_grad()
-        a_loss = torch.stack(policy_losses).sum()
-        a_loss.backward()
-        self.optimizers['a_optimizer'].step()
-
-        self.optimizers['c_optimizer'].zero_grad()
-        v_loss = torch.stack(value_losses).sum()
-        v_loss.backward()
-        self.optimizers['c_optimizer'].step()
-
+        pl = self.actor_optim.step(self.saved_actions)
+        vl = self.critic_optim.step(self.saved_actions)
         # reset rewards and action buffer
-        del self.rewards[:]
         del self.saved_actions[:]
+        return pl, vl
 
     def configure_optimizers(self):
-        optimizers = dict()
         actor_params = list(self.actor.parameters())
         critic_params = list(self.critic.parameters())
-        optimizers['a_optimizer'] = torch.optim.Adam(actor_params, lr=1e-3)
-        optimizers['c_optimizer'] = torch.optim.Adam(critic_params, lr=1e-3)
-        return optimizers
+        a = ActorOptim(actor_params, lr=1e-3, gamma=0.97, eps=self.eps, device=self.device)
+        c = CriticOptim(critic_params, lr=1e-3, gamma=0.97, eps=self.eps, device=self.device)
+        return a, c
 
     def save_checkpoint(self, path='ckpt.pth'):
         checkpoint = dict()
         checkpoint['model'] = self.state_dict()
-        for key, value in self.optimizers.items():
-            checkpoint[key] = value.state_dict()
+        checkpoint['a_optimizer'] = self.actor_optim.adam.state_dict()
+        checkpoint['c_optimizer'] = self.critic_optim.adam.state_dict()
         torch.save(checkpoint, path)
 
     def load_checkpoint(self, path='ckpt.pth'):
         checkpoint = torch.load(path)
         incp = self.load_state_dict(checkpoint['model'], strict=False)
         if not incp.missing_keys and not incp.unexpected_keys:
-            for key, value in self.optimizers.items():
-                self.optimizers[key].load_state_dict(checkpoint[key])
+            self.actor_optim.adam.load_state_dict(checkpoint['a_optimizer'])
+            self.critic_optim.adam.load_state_dict(checkpoint['c_optimizer'])
         return checkpoint['episode'] if 'episode' in checkpoint else 0
 
     def log(self, log_dict, path='log.pth'):
