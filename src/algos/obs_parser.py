@@ -19,7 +19,7 @@ class GNNParser:
         self.grid_h = grid_h
         self.grid_w = grid_w
 
-    def parse_obs(self, obs):
+    def parse_obs(self):
         size = self.env.nregion
         time = self.env.time
 
@@ -27,12 +27,12 @@ class GNNParser:
             (
                 torch.tensor([self.env.data.acc[n][time + 1] * self.s for n in range(size)]).view(1, 1, size).float(),
                 torch.tensor([[(self.env.data.acc[n][time + 1] + self.env.data.dacc[n][t]) * self.s
-                               for n in range(size)] for t in range(time + 1, time + self.vehicle_forecast + 1)])
-                    .view(1, self.vehicle_forecast, size).float(),
+                               for n in range(size)] for t in range(time + 1, time + self.vehicle_forecast + 1)]
+                             ).view(1, self.vehicle_forecast, size).float(),
                 torch.tensor([[sum([self.env.data.get_principal_demand(i, j, t) * self.s
                                     for j in range(size)]) for i in range(size)]
-                              for t in range(time + 1, time + self.demand_forecast + 1)])
-                    .view(1, self.demand_forecast, size).float()
+                              for t in range(time + 1, time + self.demand_forecast + 1)]
+                             ).view(1, self.demand_forecast, size).float()
             ), dim=1).squeeze(0).view(1 + self.vehicle_forecast + self.demand_forecast, size).T
         edge_index, pos_coord = grid(height=self.grid_h, width=self.grid_w)
         data = Data(x, edge_index)

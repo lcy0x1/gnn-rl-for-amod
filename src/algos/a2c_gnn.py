@@ -16,7 +16,6 @@ from typing import Type
 
 import numpy as np
 from torch.distributions import Dirichlet, Gamma
-from torch.nn import functional as F
 
 from src.algos.gnn_actor import *
 from src.algos.gnn_critic import GNNCritic
@@ -53,17 +52,17 @@ class A2C(nn.Module):
         self.saved_actions = []
         self.to(self.device)
 
-    def forward(self, obs, jitter=1e-20):
+    def forward(self, _, jitter=1e-20):
         """
         forward of both actor and critic
         """
         # parse raw environment data in model format
-        x = self.obs_parser.parse_obs(obs).to(self.device)
+        x = self.obs_parser.parse_obs().to(self.device)
 
         # actor: computes concentration parameters of a Dirichlet distribution
         a_out, raw_price = self.actor.forward(x)
-        concentration = F.softplus(a_out).reshape(-1) + jitter
-        price = F.softplus(raw_price + 1) + jitter
+        concentration = f.softplus(a_out).reshape(-1) + jitter
+        price = f.softplus(raw_price + 1) + jitter
 
         # critic: estimates V(s_t)
         value = self.critic(x)
@@ -121,6 +120,3 @@ class A2C(nn.Module):
             self.actor_optim.adam.load_state_dict(checkpoint['a_optimizer'])
             self.critic_optim.adam.load_state_dict(checkpoint['c_optimizer'])
         return checkpoint['episode'] if 'episode' in checkpoint else 0
-
-    def log(self, log_dict, path='log.pth'):
-        torch.save(log_dict, path)

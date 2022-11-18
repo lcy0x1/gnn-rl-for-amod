@@ -77,7 +77,7 @@ class Trainer:
             if running_average.accept(self.log.get_reward()):
                 self.model.save_checkpoint(path=self.locator.save_best())
             self.log.append()
-            self.model.log(self.log.to_obj('train'), path=self.locator.train_log())
+            torch.save(self.log.to_obj('train'), self.locator.train_log())
 
     def test(self):
         self.model.load_checkpoint(path=self.locator.test_load())
@@ -95,4 +95,4 @@ class Trainer:
             epochs.set_description(self.log.get_average(episode))
 
         print(f'Reward: {reward}')
-        self.model.log(self.log.to_obj('test'), path=self.locator.test_log())
+        torch.save(self.log.to_obj('test'), self.locator.test_log())
