@@ -16,6 +16,16 @@ from src.misc.resource_locator import ResourceLocator
 from src.scenario.fixed_price.json_raw_data import JsonRawDataScenario
 
 
+def get_actor_class(cls):
+    return GNNActorFixedPrice if cls == 'fixed' else \
+        GNNActorImitateReference if cls == 'imitate-test' else \
+        GNNActorVariablePrice
+
+
+def get_stepper_class(cls):
+    return ImitateStepper if cls == 'imitate' else Stepper
+
+
 class Trainer:
 
     def __init__(self, args, locator: ResourceLocator):
@@ -29,14 +39,14 @@ class Trainer:
         self.env = AMoD(self.scenario, beta=args.beta)
         args.cuda = not args.no_cuda and torch.cuda.is_available()
         device = torch.device("cuda" if args.cuda else "cpu")
-        cls = GNNActorFixedPrice if args.actor_type == 'fixed' else GNNActorVariablePrice
+        cls = get_actor_class(args.actor_type)
         parser = GNNParser(self.env,
                            vehicle_forecast=args.vehicle_forecast,
                            demand_forecast=args.demand_forecast)
         self.model = A2C(env=self.env, cls=cls, parser=parser).to(device)
         self.cplex = CPlexHandle(locator.cplex_log_folder, args.cplexpath, platform=args.platform)
         self.log = LogInfo()
-        step_cls = ImitateStepper if args.actor_type == 'imitate' else Stepper
+        step_cls = get_stepper_class(args.actor_type)
         self.stepper = step_cls(self.cplex, self.env, self.model, self.log)
         self.max_episodes = args.max_episodes
 
@@ -81,9 +91,6 @@ class Trainer:
             self.log.finish(1)
             self.log.append()
             epochs.set_description(self.log.get_average(episode))
-            # Log KPIs
-            if done:
-                break
 
         print(f'Reward: {reward}')
         self.model.log(self.log.to_obj('test'), path=self.locator.test_log())

@@ -19,7 +19,7 @@ class GNNActorBase(nn.Module):
         self.lin2 = nn.Linear(mid_channels, mid_channels)
         self.lin3 = nn.Linear(mid_channels, 1)
 
-        self.log_rate = nn.Parameter(torch.ones((nregion, nregion)) * gamma_rate, requires_grad=True)
+        self.gamma_rate = nn.Parameter(torch.ones((nregion, nregion)) * gamma_rate, requires_grad=True)
 
     def forward_price(self, data):
         out = f.relu(self.conv1(data.x, data.edge_index))

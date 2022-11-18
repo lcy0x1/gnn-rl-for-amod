@@ -38,7 +38,7 @@ class A2C(nn.Module):
     def __init__(self, env: AMoD, parser: GNNParser, hidden_size=32,
                  eps=np.finfo(np.float32).eps.item(),
                  device=torch.device("cpu"),
-                 cls: Type[GNNActorBase] = GNNActorVariablePrice, gamma_rate: float = 5):
+                 cls: Type[GNNActorBase] = GNNActorVariablePrice, gamma_rate: float = 20):
         super(A2C, self).__init__()
         self.env = env
         self.eps = eps
@@ -83,7 +83,7 @@ class A2C(nn.Module):
             return list(vehicle_action.detach().cpu().numpy()), price_mat.detach().cpu().numpy()
 
         vehicle_action = vehicle_dist.sample()
-        price_dist = Gamma(price_mat * self.actor.log_rate, self.actor.log_rate)
+        price_dist = Gamma(price_mat * self.actor.gamma_rate, self.actor.gamma_rate)
         price_action = price_dist.sample()
 
         self.saved_actions.append(SavedAction(
