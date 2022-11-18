@@ -5,7 +5,7 @@ from tqdm import trange
 
 from src.algos.a2c_gnn import A2C
 from src.algos.gnn_imitate import GNNActorImitateReference
-from src.algos.gnn_networks import GNNActorVariablePrice, GNNActorFixedPrice
+from src.algos.gnn_actor import GNNActorVariablePrice, GNNActorFixedPrice
 from src.algos.obs_parser import GNNParser
 from src.algos.cplex_handle import CPlexHandle
 from src.envs.amod_env import AMoD

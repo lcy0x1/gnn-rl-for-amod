@@ -19,7 +19,8 @@ from torch.distributions import Dirichlet, Gamma
 from torch.nn import functional as F
 from collections import namedtuple
 
-from src.algos.gnn_networks import *
+from src.algos.gnn_critic import GNNCritic
+from src.algos.gnn_actor import *
 from src.algos.obs_parser import GNNParser
 from src.envs.amod_env import AMoD
 
