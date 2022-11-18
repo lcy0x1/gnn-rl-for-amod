@@ -11,6 +11,7 @@ This file contains the A2C-GNN specifications. In particular, we implement:
 (4) A2C:
     Advantage Actor Critic algorithm using a GNN parametrization for both Actor and Critic.
 """
+from typing import Type
 
 import numpy as np
 
@@ -37,7 +38,7 @@ class A2C(nn.Module):
     def __init__(self, env: AMoD, parser: GNNParser, hidden_size=32,
                  eps=np.finfo(np.float32).eps.item(),
                  device=torch.device("cpu"),
-                 cls=GNNActorVariablePrice, gamma_rate: float = 5):
+                 cls: Type[GNNActorBase] = GNNActorVariablePrice, gamma_rate: float = 5):
         super(A2C, self).__init__()
         self.env = env
         self.eps = eps
@@ -64,7 +65,7 @@ class A2C(nn.Module):
         x = self.obs_parser.parse_obs(obs).to(self.device)
 
         # actor: computes concentration parameters of a Dirichlet distribution
-        a_out, raw_price = self.actor(x)
+        a_out, raw_price = self.actor.forward(x)
         concentration = F.softplus(a_out).reshape(-1) + jitter
         price = F.softplus(raw_price + 1) + jitter
 

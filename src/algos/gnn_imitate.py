@@ -1,5 +1,6 @@
 import torch
 
+from torch.nn import functional as F
 from src.algos.gnn_networks import GNNActorBase
 
 
@@ -10,10 +11,9 @@ class GNNActorImitateReference(GNNActorBase):
         self.nregion = nregion
 
     def forward(self, data):
-        x1 = self.forward_price(data)
         demand = data.x[:, 11]
         acc = data.x[:, 1]
-        prices = -0.2 - torch.log(acc / demand)
+        prices = -0.2 - torch.log(acc / F.softplus(demand))
         n = self.nregion
         prices = prices.view((n, 1)).matmul(torch.ones(n).view((1, n)))
-        return x1, prices
+        return self.forward_price(data), prices
