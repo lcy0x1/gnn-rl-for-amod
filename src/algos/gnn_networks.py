@@ -63,8 +63,8 @@ class GNNActorFixedPrice(GNNActorBase):
         self.prices = nn.Parameter(torch.zeros((nregion, nregion)), requires_grad=True)
 
     def forward(self, data):
-        _, x1 = self.forward_price(data)
-        return x1, self.prices
+        x = self.forward_price(data)
+        return x, self.prices
 
 
 class GNNCritic(nn.Module):

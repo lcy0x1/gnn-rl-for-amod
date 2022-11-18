@@ -10,9 +10,9 @@ class GNNActorImitateReference(GNNActorBase):
         self.nregion = nregion
 
     def forward(self, data):
-        _, x1 = self.forward_price(data)
+        x1 = self.forward_price(data)
         demand = data.x[:, 11]
-        acc = data.x[:, 0]
+        acc = data.x[:, 1]
         prices = -0.2 - torch.log(acc / demand)
         n = self.nregion
         prices = prices.view((n, 1)).matmul(torch.ones(n).view((1, n)))

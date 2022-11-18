@@ -50,8 +50,8 @@ def collect_arguments():
                         help='time steps for the network to preview demand')
     parser.add_argument('--instance_suffix', type=str, default='default',
                         help='name for instance, helps to separate data')
-    parser.add_argument('--fixed_price', type=bool, default=False,
-                        help='make the environment to ignore price input')
+    parser.add_argument('--actor_type', type=str, default='default',
+                        help='actor type (fixed/imitate/default)')
     parser.add_argument('--pre_train', type=str, default='none',
                         help='start from previous place')
 
