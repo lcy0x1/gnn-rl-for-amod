@@ -66,7 +66,7 @@ class Trainer:
             for step in range(self.max_steps):
                 done, backprop = self.stepper.env_step()
                 self.log.episode_data[LogEntry.gradient] += backprop
-                self.model.rewards.append(backprop)
+                self.model.rewards.append(backprop) # TODO turn it into a method, split actor and critic
                 if done:
                     break
             self.model.training_step()
