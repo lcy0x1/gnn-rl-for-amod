@@ -1,5 +1,4 @@
 from src.scenario.fixed_price.fixed_price_model import FixedPriceModelScenario
-from src.scenario.scenario import Scenario
 
 
 class Star2Complete(FixedPriceModelScenario):

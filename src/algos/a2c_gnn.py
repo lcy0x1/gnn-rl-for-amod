@@ -11,16 +11,15 @@ This file contains the A2C-GNN specifications. In particular, we implement:
 (4) A2C:
     Advantage Actor Critic algorithm using a GNN parametrization for both Actor and Critic.
 """
+from collections import namedtuple
 from typing import Type
 
 import numpy as np
-
 from torch.distributions import Dirichlet, Gamma
 from torch.nn import functional as F
-from collections import namedtuple
 
-from src.algos.gnn_critic import GNNCritic
 from src.algos.gnn_actor import *
+from src.algos.gnn_critic import GNNCritic
 from src.algos.obs_parser import GNNParser
 from src.algos.rl_optimizers import ActorOptim, CriticOptim
 from src.envs.amod_env import AMoD

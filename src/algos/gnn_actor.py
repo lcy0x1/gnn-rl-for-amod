@@ -67,5 +67,3 @@ class GNNActorFixedPrice(GNNActorBase):
     def forward(self, data):
         x = self.forward_price(data)
         return x, self.prices
-
-

@@ -14,8 +14,8 @@ This file contains the specifications for the AMoD system simulator. In particul
 
 from src.algos.cplex_handle import CPlexHandle
 from src.envs.timely_data import TimelyData
-from src.scenario.scenario import Scenario
 from src.misc.info import StepInfo
+from src.scenario.scenario import Scenario
 
 
 class AMoD:

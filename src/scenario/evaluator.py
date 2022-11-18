@@ -1,6 +1,5 @@
-from collections import defaultdict
-
 import numpy as np
+
 from src.misc.display import display
 from src.scenario.scenario import Scenario
 

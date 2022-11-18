@@ -1,11 +1,10 @@
 from collections import defaultdict
 
-import numpy
+import numpy as np
 
 from src.misc.graph_wrapper import GraphWrapper
 from src.misc.types import Node, Time
 from src.scenario.scenario import Scenario
-import numpy as np
 
 
 class TimelyData:

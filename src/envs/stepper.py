@@ -1,4 +1,4 @@
-import torch
+import numpy as np
 
 from src.algos.a2c_gnn import A2C
 from src.algos.cplex_handle import CPlexHandle
@@ -6,8 +6,6 @@ from src.algos.gnn_imitate import GNNActorImitateReference
 from src.envs.amod_env import AMoD
 from src.misc.info import LogInfo
 from src.misc.utils import dictsum
-
-import numpy as np
 
 
 class Stepper:

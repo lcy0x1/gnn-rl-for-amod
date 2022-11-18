@@ -4,7 +4,6 @@ from copy import deepcopy
 from random import random
 
 import networkx as nx
-import numpy as np
 
 from src.misc.graph_wrapper import GraphWrapper
 from src.misc.types import *

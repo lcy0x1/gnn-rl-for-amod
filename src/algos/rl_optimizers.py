@@ -1,6 +1,6 @@
 import torch
-from torch.optim import Adam
 from torch.nn import functional as f
+from torch.optim import Adam
 
 
 class BaseOptim:

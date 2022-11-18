@@ -5,10 +5,10 @@ import torch
 from tqdm import trange
 
 from src.algos.a2c_gnn import A2C
-from src.algos.gnn_imitate import GNNActorImitateReference
-from src.algos.gnn_actor import GNNActorVariablePrice, GNNActorFixedPrice, GNNActorBase
-from src.algos.obs_parser import GNNParser
 from src.algos.cplex_handle import CPlexHandle
+from src.algos.gnn_actor import GNNActorVariablePrice, GNNActorFixedPrice, GNNActorBase
+from src.algos.gnn_imitate import GNNActorImitateReference
+from src.algos.obs_parser import GNNParser
 from src.envs.amod_env import AMoD
 from src.envs.running_average import RunningAverage
 from src.envs.stepper import Stepper, ImitateStepper

@@ -1,5 +1,6 @@
 import networkx as nx
 import networkx.classes.reportviews as rv
+
 from src.misc.types import *
 
 
@@ -20,4 +21,3 @@ class GraphWrapper:
 
     def size(self) -> int:
         return len(self._graph)
-
