@@ -11,7 +11,7 @@ from src.algos.network.actor_variable_price import GNNActorVariablePrice
 from src.algos.network.gnn_actor import GNNActorBase
 from src.algos.network.imitate_reference import GNNActorImitateReference
 from src.algos.policy.a2c_base import A2CBase
-from src.algos.policy.a2c_imitating import A2CImitating
+from src.algos.imitate import A2CImitating
 from src.algos.policy.a2c_testing import A2CTesting
 from src.algos.policy.a2c_training import A2CTraining
 from src.algos.policy.a2c_training_partial import A2CTrainingPrice
