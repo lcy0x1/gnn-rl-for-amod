@@ -82,6 +82,7 @@ def view(paths: ResourceLocator, source: str):
         t1 = len(log.lists[LogEntry.reward])
     print(f'Data Points: {t1}')
     func = ave if source == 'train' else lambda e: e
+    display(func(log.lists[LogEntry.policy_loss])[t0:t1], f"{path}policy_loss.png")
     display(func(log.lists[LogEntry.reward])[t0:t1], f"{path}reward.png")
     display(func(log.lists[LogEntry.revenue])[t0:t1], f"{path}revenue.png")
     display_sum([func(log.lists[LogEntry.served_demand])[t0:t1],

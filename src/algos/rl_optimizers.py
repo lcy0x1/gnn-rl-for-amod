@@ -34,8 +34,6 @@ class BaseOptim:
 
         for (log_prob, value), cr in zip(saved_actions, returns):
             advantage = cr - value.item()
-
-            # calculate actor (policy) loss
             losses.append(self.loss_func(log_prob, value, advantage, cr))
 
         # take gradient steps

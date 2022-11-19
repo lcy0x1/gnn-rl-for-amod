@@ -65,7 +65,7 @@ class TimelyData:
     def set_prices(self, prices, t: Time):
         for o in range(self._graph.size()):
             for d in range(self._graph.size()):
-                self._var_price[o, d][t] = prices[o, d]
+                self._var_price[o, d][t] = min(3, max(0, prices[o, d]))
 
     def get_price(self, o: Node, d: Node, t: Time):
         return self._price[o, d][t] * self._var_price[o, d][t]
