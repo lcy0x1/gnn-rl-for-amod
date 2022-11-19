@@ -19,8 +19,6 @@ class A2CTesting(A2CBase):
 
     def select_action(self, obs):
         vehicle_vec, price_mat, value = self.forward(obs)
-
         vehicle_dist = Dirichlet(vehicle_vec)
-
         vehicle_action = vehicle_dist.mean
         return list(vehicle_action.detach().cpu().numpy()), price_mat.detach().cpu().numpy()

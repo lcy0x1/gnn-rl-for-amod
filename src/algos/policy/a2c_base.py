@@ -84,8 +84,8 @@ class A2CBase(nn.Module):
     def configure_optimizers(self):
         actor_params = list(self.actor.parameters())
         critic_params = list(self.critic.parameters())
-        a = ActorOptim(actor_params, lr=3e-4, gamma=0.5, eps=self.eps, device=self.device)
-        c = CriticOptim(critic_params, lr=3e-4, gamma=0.97, eps=self.eps, device=self.device)
+        a = ActorOptim(actor_params, lr=1e-3, gamma=0.97, eps=self.eps, device=self.device)
+        c = CriticOptim(critic_params, lr=1e-3, gamma=0.97, eps=self.eps, device=self.device)
         return a, c
 
     def save_checkpoint(self, path='ckpt.pth'):

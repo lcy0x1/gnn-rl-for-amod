@@ -14,6 +14,7 @@ from src.algos.policy.a2c_base import A2CBase
 from src.algos.policy.a2c_imitating import A2CImitating
 from src.algos.policy.a2c_testing import A2CTesting
 from src.algos.policy.a2c_training import A2CTraining
+from src.algos.policy.a2c_training_partial import A2CTrainingPrice
 from src.envs.amod_env import AMoD
 from src.envs.stepper import Stepper
 from src.envs.stepper_imitate import ImitateStepper
@@ -26,13 +27,14 @@ from src.scenario.fixed_price.json_raw_data import JsonRawDataScenario
 def get_actor_class(cls) -> Type[GNNActorBase]:
     return GNNActorFixedPrice if cls == 'fixed' else \
         GNNActorImitateReference if cls == 'imitate-test' else \
-            GNNActorVariablePrice
+        GNNActorVariablePrice
 
 
 def get_policy_class(cls, test) -> Type[A2CBase]:
     return A2CTesting if test else \
         A2CImitating if cls == 'imitate' or cls == 'imitate-test' else \
-            A2CTraining
+        A2CTrainingPrice if cls == 'price' else \
+        A2CTraining
 
 
 def get_stepper_class(cls) -> Type[Stepper]:

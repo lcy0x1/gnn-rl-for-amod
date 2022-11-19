@@ -7,13 +7,13 @@ from torch.distributions import Dirichlet, Gamma
 from src.algos.modules.obs_parser import GNNParser
 from src.algos.network.actor_variable_price import GNNActorVariablePrice
 from src.algos.network.gnn_actor import GNNActorBase
+from src.algos.optim.actor_optim import ActorOptim
 from src.algos.optim.critic_optim import CriticOptim
-from src.algos.optim.imitate_optim import ImitateOptim
 from src.algos.policy.a2c_base import A2CBase, SavedAction
 from src.envs.amod_env import AMoD
 
 
-class A2CImitating(A2CBase):
+class A2CTrainingPrice(A2CBase):
 
     def __init__(self, env: AMoD, parser: GNNParser, hidden_size=32, eps=np.finfo(np.float32).eps.item(),
                  device=torch.device("cpu"), cls: Type[GNNActorBase] = GNNActorVariablePrice, gamma_rate: float = 2000):
@@ -31,6 +31,6 @@ class A2CImitating(A2CBase):
     def configure_optimizers(self):
         actor_params = list(self.actor.parameters())
         critic_params = list(self.critic.parameters())
-        a = ImitateOptim(actor_params, lr=3e-4, gamma=0, eps=self.eps, device=self.device)
+        a = ActorOptim(actor_params, lr=3e-4, gamma=0.5, eps=self.eps, device=self.device)
         c = CriticOptim(critic_params, lr=1e-3, gamma=0.97, eps=self.eps, device=self.device)
         return a, c
