@@ -1,8 +1,5 @@
-import numpy as np
-
-from src.algos.a2c_gnn import A2C
 from src.algos.cplex_handle import CPlexHandle
-from src.algos.gnn_imitate import GNNActorImitateReference
+from src.algos.policy.a2c_base import A2CBase
 from src.envs.amod_env import AMoD
 from src.misc.info import LogInfo
 from src.misc.utils import dictsum
@@ -10,7 +7,7 @@ from src.misc.utils import dictsum
 
 class Stepper:
 
-    def __init__(self, cplex: CPlexHandle, env: AMoD, model: A2C, log: LogInfo):
+    def __init__(self, cplex: CPlexHandle, env: AMoD, model: A2CBase, log: LogInfo):
         self.cplex = cplex
         self.env = env
         self.model = model
@@ -52,22 +49,3 @@ class Stepper:
         self.log.add_reward(reb_reward)
         self.log.accept(info)
         return done, self.log.get_reward(), self.log.get_reward()
-
-
-class ImitateStepper(Stepper):
-
-    def __init__(self, cplex: CPlexHandle, env: AMoD, model: A2C, log: LogInfo):
-        super().__init__(cplex, env, model, log)
-        self.reference = A2C(env=env, cls=GNNActorImitateReference, parser=model.obs_parser)
-        self.reference.train(mode=False)
-        self.diff = 0
-
-    def select_action(self, obs):
-        acc, price = super().select_action(obs)
-        _, ref_price = self.reference.select_action(obs)
-        self.diff = -np.square(ref_price - price).sum()
-        return acc, price
-
-    def env_step(self):
-        done, _, reward = super().env_step()
-        return done, self.diff, reward

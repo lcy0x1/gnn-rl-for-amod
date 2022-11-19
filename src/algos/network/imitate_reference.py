@@ -1,7 +1,7 @@
 import torch
 from torch.nn import functional as F
 
-from src.algos.gnn_actor import GNNActorBase
+from src.algos.network.gnn_actor import GNNActorBase
 
 
 class GNNActorImitateReference(GNNActorBase):

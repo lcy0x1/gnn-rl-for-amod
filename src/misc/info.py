@@ -3,7 +3,8 @@ from enum import Enum
 
 from numpy import mean
 
-LogEntry = Enum('LogEntry', ['value_loss', 'policy_loss', 'reward', 'revenue', 'served_demand', 'missed_demand',
+LogEntry = Enum('LogEntry', ['value_loss', 'policy_loss', 'gradient', 'reward', 'revenue',
+                             'served_demand', 'missed_demand',
                              'reb_cost', 'price_point', 'pax_vehicle', 'reb_vehicle', 'idle_vehicle'])
 
 
@@ -32,6 +33,7 @@ class StepInfo:
 
 
 def _format(i, d):
+    gr = d(LogEntry.gradient)
     pl = d(LogEntry.policy_loss)
     vl = d(LogEntry.value_loss)
     rw = d(LogEntry.reward)
@@ -48,6 +50,7 @@ def _format(i, d):
     return f"Episode {i + 1} | " \
            f"Policy Loss: {pl:.2f} | " \
            f"Value Loss: {vl:.2f} | " \
+           f"Actor Reward: {gr:.2f} | " \
            f"Reward: {rw:.2f} | " \
            f"Revenue: {rn:.2f} | " \
            f"ServedDemand: {sdr:.2f}% | " \

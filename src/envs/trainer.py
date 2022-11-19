@@ -4,16 +4,22 @@ from typing import Type
 import torch
 from tqdm import trange
 
-from src.algos.a2c_gnn import A2C
 from src.algos.cplex_handle import CPlexHandle
-from src.algos.gnn_actor import GNNActorVariablePrice, GNNActorFixedPrice, GNNActorBase
-from src.algos.gnn_imitate import GNNActorImitateReference
-from src.algos.obs_parser import GNNParser
+from src.algos.modules.obs_parser import GNNParser
+from src.algos.network.actor_fixed_price import GNNActorFixedPrice
+from src.algos.network.actor_variable_price import GNNActorVariablePrice
+from src.algos.network.gnn_actor import GNNActorBase
+from src.algos.network.imitate_reference import GNNActorImitateReference
+from src.algos.policy.a2c_base import A2CBase
+from src.algos.policy.a2c_imitating import A2CImitating
+from src.algos.policy.a2c_testing import A2CTesting
+from src.algos.policy.a2c_training import A2CTraining
 from src.envs.amod_env import AMoD
-from src.envs.running_average import RunningAverage
-from src.envs.stepper import Stepper, ImitateStepper
+from src.envs.stepper import Stepper
+from src.envs.stepper_imitate import ImitateStepper
 from src.misc.info import LogInfo, LogEntry
 from src.misc.resource_locator import ResourceLocator
+from src.misc.running_average import RunningAverage
 from src.scenario.fixed_price.json_raw_data import JsonRawDataScenario
 
 
@@ -21,6 +27,12 @@ def get_actor_class(cls) -> Type[GNNActorBase]:
     return GNNActorFixedPrice if cls == 'fixed' else \
         GNNActorImitateReference if cls == 'imitate-test' else \
             GNNActorVariablePrice
+
+
+def get_policy_class(cls, test) -> Type[A2CBase]:
+    return A2CTesting if test else \
+        A2CImitating if cls == 'imitate' or cls == 'imitate-test' else \
+            A2CTraining
 
 
 def get_stepper_class(cls) -> Type[Stepper]:
@@ -44,7 +56,8 @@ class Trainer:
         parser = GNNParser(self.env,
                            vehicle_forecast=args.vehicle_forecast,
                            demand_forecast=args.demand_forecast)
-        self.model = A2C(env=self.env, cls=cls, parser=parser).to(device)
+        a2c_cls = get_policy_class(args.actor_type, args.test)
+        self.model = a2c_cls(env=self.env, cls=cls, parser=parser).to(device)
         self.cplex = CPlexHandle(locator.cplex_log_folder, args.cplexpath, platform=args.platform)
         self.log = LogInfo()
         step_cls = get_stepper_class(args.actor_type)
@@ -66,6 +79,7 @@ class Trainer:
             self.env.reset()  # initialize environment
             for step in range(self.max_steps):
                 done, actor_reward, critic_reward = self.stepper.env_step()
+                self.log.episode_data[LogEntry.gradient] = actor_reward
                 self.model.save_rewards(actor_reward, critic_reward)
                 if done:
                     break
