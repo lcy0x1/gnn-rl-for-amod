@@ -78,6 +78,9 @@ This work was conducted as a joint effort with [Kaidi Yang*](https://sites.googl
 ----------
 In case of any questions, bugs, suggestions or improvements, please feel free to contact me at daga@dtu.dk.
 
-TODO:
-1. Split Actor Update and Critic Update
-2. Train imitation again
+```
+python3 main.py --instance_suffix=imitate --actor_type=imitate --pre_train=price-variable
+python3 main.py --instance_suffix=vdvp --actor_type=price --pre_train=imitate
+python3 main.py --instance_suffix=vdfp --pre_train=price-fixed
+python3 main.py --instance_suffix=vdfp-1 --pre_train=vdfp --actor_type=price
+```

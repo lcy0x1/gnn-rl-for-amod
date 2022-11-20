@@ -33,7 +33,7 @@ def get_actor_class(cls) -> Type[GNNActorBase]:
 def get_policy_class(cls, test) -> Type[A2CBase]:
     return A2CTesting if test else \
         A2CImitating if cls == 'imitate' or cls == 'imitate-test' else \
-        A2CTrainingPrice if cls == 'price' else \
+        A2CTrainingPrice if cls == 'price' or cls == 'fixed' else \
         A2CTraining
 
 
