@@ -78,16 +78,18 @@ def view(paths: ResourceLocator, source: str):
     if t1 == 0:
         t1 = len(log.lists[LogEntry.reward])
     print(f'Data Points: {t1}')
+    dr = 8
+    name = "Constant Factor Price"
     func = ave if source == 'train' else lambda e: e
     display(func(log.lists[LogEntry.reward])[t0:t1], f"{path}reward.png",
             ytick=2000, ymax=14000,
-            title="Reward for Dynamic Price at dr=8",
-            legend=f"Total Reward: {round(sum(log.lists[LogEntry.reward]))}")
+            title=f"Reward for {name} at dr={dr}",
+            legend=[f"Total Reward: {round(sum(log.lists[LogEntry.reward]))}"])
     display_sum([func(log.lists[LogEntry.served_demand])[t0:t1],
                  func(log.lists[LogEntry.missed_demand])[t0:t1]],
                 f"{path}served_demand.png",
                 ytick=200, ymax=1000,
-                title="Served and Total Demand",
+                title=f"Served and Total Demand for {name} at dr={dr}",
                 legend=["Served Demand", "Total Demand"])
     # display(func(log.lists[LogEntry.reb_cost])[t0:t1], f"{path}reb_cost.png")
     # display_sum([func(log.lists[LogEntry.pax_vehicle])[t0:t1],
