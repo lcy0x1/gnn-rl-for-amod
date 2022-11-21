@@ -81,7 +81,8 @@ def view(paths: ResourceLocator, source: str):
     func = ave if source == 'train' else lambda e: e
     display(func(log.lists[LogEntry.reward])[t0:t1], f"{path}reward.png",
             ytick=2000, ymax=14000,
-            title="Reward for Dynamic Price at dr=8")
+            title="Reward for Dynamic Price at dr=8",
+            legend=f"Total Reward: {round(sum(log.lists[LogEntry.reward]))}")
     display_sum([func(log.lists[LogEntry.served_demand])[t0:t1],
                  func(log.lists[LogEntry.missed_demand])[t0:t1]],
                 f"{path}served_demand.png",
