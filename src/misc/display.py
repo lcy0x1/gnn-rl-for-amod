@@ -68,7 +68,7 @@ def display_sum(data, dst, ytick=0, ymax=0, title: str = None, legend: [str] = N
 
 def view(paths: ResourceLocator, source: str):
     paths.graph_folder = "output_" + paths.graph_folder
-    dr = 4
+    dr = 12
     name = "Dynamic Price"
     path = paths.save_graphs(source + f'_dr{dr}')
     check(path)
@@ -82,13 +82,13 @@ def view(paths: ResourceLocator, source: str):
     print(f'Data Points: {t1}')
     func = ave if source == 'train' else lambda e: e
     display(func(log.lists[LogEntry.reward])[t0:t1], f"{path}reward.png",
-            ytick=1000, ymax=10000,
+            ytick=2000, ymax=16000,
             title=f"Reward for {name} at dr={dr}",
             legend=[f"Total Reward: {round(sum(log.lists[LogEntry.reward]))}"])
     display_sum([func(log.lists[LogEntry.served_demand])[t0:t1],
                  func(log.lists[LogEntry.missed_demand])[t0:t1]],
                 f"{path}served_demand.png",
-                ytick=100, ymax=800,
+                ytick=200, ymax=1600,
                 title=f"Served and Total Demand for {name} at dr={dr}",
                 legend=["Served Demand", "Total Demand"])
     # display(func(log.lists[LogEntry.reb_cost])[t0:t1], f"{path}reb_cost.png")
