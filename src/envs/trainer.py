@@ -20,7 +20,7 @@ from src.envs.stepper import Stepper
 from src.envs.stepper_imitate import ImitateStepper
 from src.misc.info import LogInfo, LogEntry
 from src.misc.resource_locator import ResourceLocator
-from src.misc.running_average import RunningAverage
+from src.misc.utils import RunningAverage
 from src.scenario.fixed_price.json_raw_data import JsonRawDataScenario
 
 
