@@ -26,14 +26,14 @@ class ImitateOptim(BaseOptim):
 class A2CImitating(A2CBase):
 
     def __init__(self, env: AMoD, parser: GNNParser, hidden_size=32, eps=np.finfo(np.float32).eps.item(),
-                 device=torch.device("cpu"), cls: Type[GNNActorBase] = GNNActorVariablePrice, gamma_rate: float = 2000):
-        super().__init__(env, parser, hidden_size, eps, device, cls, gamma_rate)
+                 device=torch.device("cpu"), cls: Type[GNNActorBase] = GNNActorVariablePrice, variance: float = 2000):
+        super().__init__(env, parser, hidden_size, eps, device, cls, variance)
 
     def select_action(self, ref):
         vehicle_vec, price_mat, value = self.forward(ref)
         vehicle_dist = Dirichlet(vehicle_vec)
         vehicle_action = vehicle_dist.mean
-        price_dist = Gamma(price_mat * self.actor.gamma_rate, self.actor.gamma_rate)
+        price_dist = Gamma(price_mat * self.actor.variance, self.actor.variance)
         price_action = price_dist.mean
         dist = torch.square(torch.tensor(ref) - price_action).sum()
         self.saved_actions.append(SavedAction(dist, value))

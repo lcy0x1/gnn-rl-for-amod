@@ -1,9 +1,10 @@
 from __future__ import print_function
+
 import argparse
 
 from src.envs.trainer import Trainer
-from src.misc.resource_locator import ResourceLocator
 from src.misc.display import view
+from src.misc.resource_locator import ResourceLocator
 from src.scenario.evaluator import evaluate_env
 
 
@@ -25,6 +26,8 @@ def collect_arguments():
                         help='time skip per step to fast forward training')
     parser.add_argument('--max_steps', type=int, default=48, metavar='N',
                         help='number of steps per episode (default: T=60)')
+    parser.add_argument('--distribution', type=str, default='linear',
+                        help='demand-price relationship, linear or exp (default:linear)')
 
     # Model parameters
     parser.add_argument('--view', type=str, default='none',

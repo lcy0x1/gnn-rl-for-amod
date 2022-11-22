@@ -33,7 +33,7 @@ class A2CBase(nn.Module):
     """
 
     def __init__(self, env: AMoD, parser: GNNParser, hidden_size=32, eps=np.finfo(np.float32).eps.item(),
-                 device=torch.device("cpu"), cls: Type[GNNActorBase] = GNNActorVariablePrice, gamma_rate: float = 2000):
+                 device=torch.device("cpu"), cls: Type[GNNActorBase] = GNNActorVariablePrice, variance: float = 1):
         super(A2CBase, self).__init__()
         self.env = env
         self.eps = eps
@@ -41,7 +41,7 @@ class A2CBase(nn.Module):
         self.hidden_size = hidden_size
         self.device = device
 
-        self.actor = cls(self.input_size, self.hidden_size, env.nregion, gamma_rate)
+        self.actor = cls(self.input_size, self.hidden_size, env.nregion, variance)
         self.critic = GNNCritic(self.input_size, self.hidden_size)
         self.obs_parser = parser
 
@@ -61,7 +61,7 @@ class A2CBase(nn.Module):
         # actor: computes concentration parameters of a Dirichlet distribution
         a_out, raw_price = self.actor.forward(x)
         concentration = f.softplus(a_out).reshape(-1) + jitter
-        price = f.softplus(raw_price + 1) + jitter
+        price = raw_price + jitter
 
         # critic: estimates V(s_t)
         value = self.critic(x)

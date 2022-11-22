@@ -12,8 +12,8 @@ class GNNActorVariablePrice(GNNActorBase):
     Actor pi(a_t | s_t) parametrizing the concentration parameters of a Dirichlet Policy.
     """
 
-    def __init__(self, in_channels, mid_channels, nregion, gamma_rate, pmid=8):
-        super().__init__(in_channels, mid_channels, nregion, gamma_rate)
+    def __init__(self, in_channels, mid_channels, nregion, variance, pmid=8):
+        super().__init__(in_channels, mid_channels, nregion, variance)
 
         self.convp = GCNConv(in_channels, in_channels)
         self.lin1p = nn.Linear(in_channels, pmid)

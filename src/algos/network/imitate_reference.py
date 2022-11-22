@@ -6,8 +6,8 @@ from src.algos.network.gnn_actor import GNNActorBase
 
 class GNNActorImitateReference(GNNActorBase):
 
-    def __init__(self, in_channels, mid_channels, nregion, gamma_rate):
-        super().__init__(in_channels, mid_channels, nregion, gamma_rate)
+    def __init__(self, in_channels, mid_channels, nregion, variance):
+        super().__init__(in_channels, mid_channels, nregion, variance)
         self.nregion = nregion
 
     def forward(self, data):

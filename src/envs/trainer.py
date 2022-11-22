@@ -1,3 +1,4 @@
+import math
 import os
 from typing import Type
 
@@ -41,6 +42,14 @@ def get_stepper_class(cls) -> Type[Stepper]:
     return ImitateStepper if cls == 'imitate' else Stepper
 
 
+def dist_exp(x):
+    return math.exp(1 - x)
+
+
+def dist_linear(x):
+    return max(0, 2 - x)
+
+
 class Trainer:
 
     def __init__(self, args, locator: ResourceLocator):
@@ -51,7 +60,8 @@ class Trainer:
                                             demand_ratio=args.demand_ratio,
                                             json_hr=args.json_hr, json_tstep=args.json_tstep,
                                             tf=self.max_steps, time_skip=args.time_skip)
-        self.env = AMoD(self.scenario, beta=args.beta)
+        dist = dist_exp if args.distribution == 'exp' else dist_linear
+        self.env = AMoD(self.scenario, beta=args.beta, distribution=dist)
         args.cuda = not args.no_cuda and torch.cuda.is_available()
         device = torch.device("cuda" if args.cuda else "cpu")
         actor_cls = get_actor_class(args.actor_type)

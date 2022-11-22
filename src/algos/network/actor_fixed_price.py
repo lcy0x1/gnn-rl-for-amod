@@ -9,8 +9,8 @@ class GNNActorFixedPrice(GNNActorBase):
     Actor pi(a_t | s_t) parametrizing the concentration parameters of a Dirichlet Policy.
     """
 
-    def __init__(self, in_channels, mid_channels, nregion, gamma_rate):
-        super().__init__(in_channels, mid_channels, nregion, gamma_rate)
+    def __init__(self, in_channels, mid_channels, nregion, variance):
+        super().__init__(in_channels, mid_channels, nregion, variance)
 
         self.prices = nn.Parameter(torch.zeros((nregion, nregion)), requires_grad=True)
 

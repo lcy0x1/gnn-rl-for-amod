@@ -20,10 +20,11 @@ from src.scenario.scenario import Scenario
 
 class AMoD:
     # initialization
-    def __init__(self, scenario: Scenario, beta=0.2):
+    def __init__(self, scenario: Scenario, distribution, beta=0.2):
         # updated to take scenario and beta (cost for rebalancing) as input
         # I changed it to deep copy so that the scenario input is not modified by env
         self.scenario = scenario
+        self.distribution = distribution
         # Road Graph: node - region, edge - connection of regions, node attr: 'accInit', edge attr: 'time'
         self.graph = self.scenario.get_graph()
         self.time = 0  # current time
@@ -40,7 +41,7 @@ class AMoD:
         self.edges = list(set(self.edges))
         self.nedge = [len(self.graph.get_out_edges(n)) + 1 for n in self.region]  # number of edges leaving each region
 
-        self.data = TimelyData(self.scenario, self.graph)
+        self.data = TimelyData(self.scenario, self.graph, self.distribution)
 
         # add the initialization of info here
         self.info = StepInfo(self.data.total_acc)
@@ -133,5 +134,5 @@ class AMoD:
         # reset the episode
         self.time = 0
         self.reward = 0
-        self.data = TimelyData(self.scenario, self.graph)
+        self.data = TimelyData(self.scenario, self.graph, self.distribution)
         return self

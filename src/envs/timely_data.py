@@ -9,10 +9,11 @@ from src.scenario.scenario import Scenario
 
 class TimelyData:
 
-    def __init__(self, scenario: Scenario, graph: GraphWrapper):
+    def __init__(self, scenario: Scenario, graph: GraphWrapper, distribution):
         self._scenario = scenario
         self._graph = graph
         self.total_acc = 0
+        self.distribution = distribution
 
         # number of vehicles within each region, key: i - region, t - time
         self.acc = defaultdict(dict)
@@ -57,7 +58,7 @@ class TimelyData:
         if o == d:
             return 0
         if t not in self._real_demand[o, d]:
-            demand = self._demand[o, d][t] * np.exp(1 - self._var_price[o, d][t])
+            demand = self._demand[o, d][t] * self.distribution(self._var_price[o, d][t])
             self._real_demand[o, d][t] = int(round(np.random.poisson(demand)))
 
         return self._real_demand[o, d][t]
