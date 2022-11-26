@@ -2,7 +2,6 @@ from typing import Type
 
 import numpy as np
 import torch
-from torch.distributions import Dirichlet
 
 from src.algos.modules.obs_parser import GNNParser
 from src.algos.network.actor_variable_price import GNNActorVariablePrice

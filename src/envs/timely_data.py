@@ -2,6 +2,7 @@ from collections import defaultdict
 
 import numpy as np
 
+from src.envs.parameter_group import ParameterGroup
 from src.misc.graph_wrapper import GraphWrapper
 from src.misc.types import Node, Time
 from src.scenario.scenario import Scenario
@@ -9,11 +10,11 @@ from src.scenario.scenario import Scenario
 
 class TimelyData:
 
-    def __init__(self, scenario: Scenario, graph: GraphWrapper, distribution):
+    def __init__(self, scenario: Scenario, graph: GraphWrapper, param: ParameterGroup):
         self._scenario = scenario
         self._graph = graph
         self.total_acc = 0
-        self.distribution = distribution
+        self.param = param
 
         # number of vehicles within each region, key: i - region, t - time
         self.acc = defaultdict(dict)
@@ -26,7 +27,8 @@ class TimelyData:
         self._real_demand = defaultdict(dict)
 
         # record only, not for calculation
-        self.servedDemand = defaultdict(dict)
+        self._served_demand = defaultdict(dict)
+        self._inherited_demand = defaultdict(dict)
         # number of rebalancing vehicles, key: (i,j) - (origin, destination), t - time
         self.rebFlow = defaultdict(dict)
         # number of vehicles with passengers, key: (i,j) - (origin, destination), t - time
@@ -38,7 +40,8 @@ class TimelyData:
         for i, j in graph.get_all_edges():
             self.rebFlow[i, j] = defaultdict(float)
             self.paxFlow[i, j] = defaultdict(float)
-            self.servedDemand[i, j] = defaultdict(int)
+            self._served_demand[i, j] = defaultdict(int)
+            self._inherited_demand[i, j] = defaultdict(int)
         self.total_acc = 0
         for n in range(graph.size()):
             acc = self._scenario.get_init_acc(n)
@@ -54,13 +57,18 @@ class TimelyData:
             return 0
         return self._demand[o, d][t]
 
+    def get_principal_price(self, o: Node, d: Node, t: Time):
+        if o == d:
+            return 0
+        return self._price[o, d][t]
+
     def get_demand(self, o: Node, d: Node, t: Time):
         if o == d:
             return 0
         if t not in self._real_demand[o, d]:
-            demand = self._demand[o, d][t] * self.distribution(self._var_price[o, d][t])
-            self._real_demand[o, d][t] = int(round(np.random.poisson(demand)))
-
+            demand = self._demand[o, d][t] * self.param.dist(self._var_price[o, d][t])
+            current_demand = int(round(np.random.poisson(demand)))
+            self._real_demand[o, d][t] = current_demand + self._inherited_demand[o, d][t - 1]
         return self._real_demand[o, d][t]
 
     def set_prices(self, prices, t: Time):
@@ -70,3 +78,12 @@ class TimelyData:
 
     def get_price(self, o: Node, d: Node, t: Time):
         return self._price[o, d][t] * self._var_price[o, d][t]
+
+    def serve_demand(self, o, d, t, int_pax):
+        demand = self.get_demand(o, d, t)
+        missed = demand - int_pax
+        retained = min(self.param.threshold, missed)
+        leave = missed - retained
+        self._served_demand[o, d][t] = int_pax
+        self._inherited_demand[o, d][t] = retained
+        return demand, retained, leave

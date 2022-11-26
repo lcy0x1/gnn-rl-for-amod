@@ -32,11 +32,14 @@ class GNNParser:
                 torch.tensor([[sum([self.env.data.get_principal_demand(i, j, t) * self.s
                                     for j in range(size)]) for i in range(size)]
                               for t in range(time + 1, time + self.demand_forecast + 1)]
-                             ).view(1, self.demand_forecast, size).float()
-            ), dim=1).squeeze(0).view(1 + self.vehicle_forecast + self.demand_forecast, size).T
+                             ).view(1, self.demand_forecast, size).float(),
+                torch.tensor([[sum(self.env.data.get_demand(o, d, time) * self.s
+                                   for d in range(size))] for o in range(size)]
+                             ).view(1, 1, size).float()
+            ), dim=1).squeeze(0).view(self.width(), size).T
         edge_index, pos_coord = grid(height=self.grid_h, width=self.grid_w)
         data = Data(x, edge_index)
         return data
 
     def width(self):
-        return 1 + self.vehicle_forecast + self.demand_forecast
+        return 1 + self.vehicle_forecast + self.demand_forecast + 1

@@ -13,6 +13,7 @@ This file contains the specifications for the AMoD system simulator. In particul
 """
 
 from src.algos.cplex_handle import CPlexHandle
+from src.envs.parameter_group import ParameterGroup
 from src.envs.timely_data import TimelyData
 from src.misc.info import StepInfo
 from src.scenario.scenario import Scenario
@@ -20,18 +21,17 @@ from src.scenario.scenario import Scenario
 
 class AMoD:
     # initialization
-    def __init__(self, scenario: Scenario, distribution, beta=0.2):
+    def __init__(self, scenario: Scenario, param: ParameterGroup):
         # updated to take scenario and beta (cost for rebalancing) as input
         # I changed it to deep copy so that the scenario input is not modified by env
         self.scenario = scenario
-        self.distribution = distribution
         # Road Graph: node - region, edge - connection of regions, node attr: 'accInit', edge attr: 'time'
         self.graph = self.scenario.get_graph()
         self.time = 0  # current time
         self.tf = self.scenario.get_final_time()  # final time
         self.region = self.graph.node_list()  # set of regions
         self.nregion = self.graph.size()  # number of regions
-        self.beta = beta * self.scenario.get_step_time()
+        self.param = param
 
         self.edges = []  # set of rebalancing edges
         for i in range(self.nregion):
@@ -41,7 +41,7 @@ class AMoD:
         self.edges = list(set(self.edges))
         self.nedge = [len(self.graph.get_out_edges(n)) + 1 for n in self.region]  # number of edges leaving each region
 
-        self.data = TimelyData(self.scenario, self.graph, self.distribution)
+        self.data = TimelyData(self.scenario, self.graph, self.param)
 
         # add the initialization of info here
         self.info = StepInfo(self.data.total_acc)
@@ -71,25 +71,30 @@ class AMoD:
         for k in range(len(self.edges)):
             i, j = self.edges[k]
             int_pax = int(min(self.data.acc[i][t + 1], pax_action[k]))
-            self.info.missed_demand += self.data.get_demand(i, j, t) - int_pax
+            demand, retained, leave = self.data.serve_demand(i, j, t, int_pax)
+            self.info.missed_demand += leave
+            price = self.data.get_price(i, j, t)
+            chargeback = leave * self.param.chargeback
+            self.reward += demand * price - retained * self.param.penalty - chargeback
+            self.info.revenue += demand * price
+
             if int_pax == 0:
                 continue
             demand_time = self.scenario.get_demand_time(i, j, t)
 
-            self.data.servedDemand[i, j][t] = int_pax
             self.data.paxFlow[i, j][t + demand_time] = int_pax
             self.data.acc[i][t + 1] -= int_pax
             self.data.dacc[j][t + demand_time] += int_pax
 
-            self.reward += int_pax * (self.data.get_price(i, j, t) - demand_time * self.beta)
-            self.info.operating_cost += demand_time * self.beta * int_pax
+            op_cost = demand_time * self.param.cost * int_pax
+            self.reward -= op_cost
+            self.info.operating_cost += op_cost
             self.info.served_demand += int_pax
-            self.info.revenue += int_pax * (self.data.get_price(i, j, t))
             self.info.pax_vehicle += int_pax * demand_time
 
         # for acc, the time index would be t+1, but for demand, the time index would be t
         done = False  # if passenger matching is executed first
-        return self, max(0, self.reward), done, self.info
+        return self, self.reward, done, self.info
 
     # reb step
     def reb_step(self, reb_action):
@@ -110,7 +115,7 @@ class AMoD:
             self.data.acc[i][t + 1] -= int_reb
             self.data.dacc[j][t + reb_time] += int_reb
 
-            cost = reb_time * self.beta * int_reb
+            cost = reb_time * self.param.cost * int_reb
             self.info.reb_cost += cost
             self.info.operating_cost += cost
             self.info.reb_vehicle += int_reb * reb_time
@@ -134,5 +139,5 @@ class AMoD:
         # reset the episode
         self.time = 0
         self.reward = 0
-        self.data = TimelyData(self.scenario, self.graph, self.distribution)
+        self.data = TimelyData(self.scenario, self.graph, self.param)
         return self

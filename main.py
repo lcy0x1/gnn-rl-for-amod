@@ -20,7 +20,7 @@ def collect_arguments():
                         help='json_hr (default: 0)')
     parser.add_argument('--json_tstep', type=int, default=3, metavar='S',
                         help='minutes per timestep (default: 3min)')
-    parser.add_argument('--beta', type=int, default=0.5, metavar='S',
+    parser.add_argument('--cost', type=int, default=0.5, metavar='S',
                         help='cost of rebalancing (default: 0.5)')
     parser.add_argument('--time_skip', type=int, default=10,
                         help='time skip per step to fast forward training')

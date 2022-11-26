@@ -17,6 +17,7 @@ from src.algos.policy.a2c_testing import A2CTesting
 from src.algos.policy.a2c_training import A2CTraining
 from src.algos.policy.a2c_training_partial import A2CTrainingPrice
 from src.envs.amod_env import AMoD
+from src.envs.parameter_group import ParameterGroup
 from src.envs.stepper import Stepper
 from src.envs.stepper_imitate import ImitateStepper
 from src.misc.info import LogInfo, LogEntry
@@ -34,7 +35,7 @@ def get_actor_class(cls) -> Type[GNNActorBase]:
 def get_policy_class(cls, test) -> Type[A2CBase]:
     return A2CTesting if test else \
         A2CImitating if cls == 'imitate' or cls == 'imitate-test' else \
-            A2CTrainingPrice if cls == 'price' or cls == 'fixed' else \
+            A2CTrainingPrice if cls == 'price' or cls == 'fixed-price' else \
                 A2CTraining
 
 
@@ -61,7 +62,10 @@ class Trainer:
                                             json_hr=args.json_hr, json_tstep=args.json_tstep,
                                             tf=self.max_steps, time_skip=args.time_skip)
         dist = dist_exp if args.distribution == 'exp' else dist_linear
-        self.env = AMoD(self.scenario, beta=args.beta, distribution=dist)
+        param = ParameterGroup(dist, step=self.scenario.get_step_time(),
+                               cost=args.cost, penalty=args.cost,
+                               threshold=100, chargeback=20)
+        self.env = AMoD(self.scenario, param)
         args.cuda = not args.no_cuda and torch.cuda.is_available()
         device = torch.device("cuda" if args.cuda else "cpu")
         actor_cls = get_actor_class(args.actor_type)

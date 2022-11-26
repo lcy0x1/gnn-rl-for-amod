@@ -67,8 +67,8 @@ def display_sum(data, dst, ytick=0, ymax=0, title: str = None, legend: [str] = N
 
 
 def view(paths: ResourceLocator, source: str):
-    paths.graph_folder = "output_" + paths.graph_folder
-    dr = 12
+    # paths.graph_folder = "output_" + paths.graph_folder
+    dr = 8
     name = "Dynamic Price"
     path = paths.save_graphs(source + f'_dr{dr}')
     check(path)

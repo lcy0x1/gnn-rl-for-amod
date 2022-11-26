@@ -1,9 +1,8 @@
 import numpy as np
 
 from src.algos.cplex_handle import CPlexHandle
-from src.algos.network.imitate_reference import GNNActorImitateReference
-from src.algos.policy.a2c_base import A2CBase
 from src.algos.imitate import A2CImitating
+from src.algos.network.imitate_reference import GNNActorImitateReference
 from src.algos.policy.a2c_testing import A2CTesting
 from src.envs.amod_env import AMoD
 from src.envs.stepper import Stepper
