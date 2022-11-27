@@ -10,12 +10,12 @@ class GNNParser:
     Parser converting raw environment observations to agent inputs (s_t).
     """
 
-    def __init__(self, env: AMoD, vehicle_forecast=10, demand_forecast=10, grid_h=4, grid_w=4, scale_factor=0.01):
+    def __init__(self, env: AMoD, vehicle_forecast=10, demand_forecast=10, grid_h=4, grid_w=4):
         super().__init__()
         self.env = env
         self.vehicle_forecast = vehicle_forecast
         self.demand_forecast = demand_forecast
-        self.s = scale_factor
+        self.s = 1 / env.data.total_acc
         self.grid_h = grid_h
         self.grid_w = grid_w
 
