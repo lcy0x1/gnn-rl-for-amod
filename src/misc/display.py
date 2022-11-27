@@ -23,16 +23,23 @@ def ave(data, rate=0.95):
     return ans
 
 
-def display(data, dst, ytick=0, ymax=0, title=None, legend=None):
+def display(data, dst, ytick=None, ymax=None, ymin=None, title=None, legend=None):
     fig: plt.Figure
     ax: plt.Axes
     fig, ax = plt.subplots()
 
     n = len(data)
+    if ymax is None:
+        ymax = max(data)
+    if ymin is None:
+        ymin = min(data)
 
     ax.plot(range(n), data, linewidth=2.0, label=legend)
 
-    ax.set(xlim=(0, n), ylim=(0, ymax), xticks=np.arange(0, n, 60), yticks=np.arange(0, ymax, ytick))
+    ax.set(xlim=(0, n), ylim=(ymin, ymin + (ymax - ymin) * 1.2)
+           # , xticks=np.arange(0, n, 60)
+           # , yticks=np.arange(ymin, ymax, ytick)
+           )
 
     if title is not None:
         ax.set_title(title)
@@ -42,10 +49,13 @@ def display(data, dst, ytick=0, ymax=0, title=None, legend=None):
     fig.savefig(dst)
 
 
-def display_sum(data, dst, ytick=0, ymax=0, title: str = None, legend: [str] = None):
+def display_sum(data, dst, ytick=None, ymax=None, ymin=None, title: str = None, legend: [str] = None):
     fig: plt.Figure
     ax: plt.Axes
     fig, ax = plt.subplots()
+
+    nmax = 0
+    nmin = 0
 
     n = len(data[0])
     cul = 0
@@ -53,10 +63,26 @@ def display_sum(data, dst, ytick=0, ymax=0, title: str = None, legend: [str] = N
     for d in data:
         cul = np.array(d) + cul
         leg = None if legend is None else legend[ind]
+
+        if ymax is None:
+            nymax = max(cul)
+            nmax = max(nmax, nymax)
+        if ymin is None:
+            nymin = min(cul)
+            nmin = min(nmin, nymin)
+
         ax.plot(range(n), cul, linewidth=2.0, label=leg)
         ind += 1
 
-    ax.set(xlim=(0, n), ylim=(0, ymax), xticks=np.arange(0, n, 60), yticks=np.arange(0, ymax, ytick))
+    if ymax is None:
+        ymax = nmax
+    if ymin is None:
+        ymin = nmin
+
+    ax.set(xlim=(0, n), ylim=(ymin, ymin + (ymax - ymin) * 1.2)
+           # , xticks=np.arange(0, n, 60)
+           # , yticks=np.arange(0, ymax, ytick)
+           )
 
     if title is not None:
         ax.set_title(title)
@@ -82,16 +108,17 @@ def view(paths: ResourceLocator, source: str):
     print(f'Data Points: {t1}')
     func = ave if source == 'train' else lambda e: e
     display(func(log.lists[LogEntry.reward])[t0:t1], f"{path}reward.png",
-            ytick=2000, ymax=16000,
+            #        ytick=2000, ymax=16000,
             title=f"Reward for {name} at dr={dr}",
             legend=[f"Total Reward: {round(sum(log.lists[LogEntry.reward]))}"])
     display_sum([func(log.lists[LogEntry.served_demand])[t0:t1],
                  func(log.lists[LogEntry.missed_demand])[t0:t1]],
                 f"{path}served_demand.png",
-                ytick=200, ymax=1600,
+                #            ytick=200, ymax=1600,
                 title=f"Served and Total Demand for {name} at dr={dr}",
                 legend=["Served Demand", "Total Demand"])
-    # display(func(log.lists[LogEntry.reb_cost])[t0:t1], f"{path}reb_cost.png")
+    display(func(log.lists[LogEntry.price_point])[t0:t1], f'{path}price_point.png')
+    display(func(log.lists[LogEntry.reb_cost])[t0:t1], f"{path}reb_cost.png")
     # display_sum([func(log.lists[LogEntry.pax_vehicle])[t0:t1],
     #             func(log.lists[LogEntry.reb_vehicle])[t0:t1],
     #             func(log.lists[LogEntry.idle_vehicle])[t0:t1]], f"{path}percentages.png")

@@ -64,7 +64,7 @@ class Trainer:
         dist = dist_exp if args.distribution == 'exp' else dist_linear
         param = ParameterGroup(dist, step=self.scenario.get_step_time(),
                                cost=args.cost, penalty=args.cost,
-                               threshold=100, chargeback=20)
+                               threshold=100, chargeback=400)
         self.env = AMoD(self.scenario, param)
         args.cuda = not args.no_cuda and torch.cuda.is_available()
         device = torch.device("cuda" if args.cuda else "cpu")
