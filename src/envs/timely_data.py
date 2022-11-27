@@ -15,6 +15,7 @@ class TimelyData:
         self._graph = graph
         self.total_acc = 0
         self.param = param
+        self.tf = scenario.get_final_time()
 
         # number of vehicles within each region, key: i - region, t - time
         self.acc = defaultdict(dict)
@@ -82,7 +83,8 @@ class TimelyData:
     def serve_demand(self, o, d, t, int_pax):
         demand = self.get_demand(o, d, t)
         missed = demand - int_pax
-        retained = min(self.param.threshold, missed)
+        threshold = self.param.threshold
+        retained = min(threshold, missed)
         leave = missed - retained
         self._served_demand[o, d][t] = int_pax
         self._inherited_demand[o, d][t] = retained

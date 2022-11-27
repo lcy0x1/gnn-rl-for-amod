@@ -75,8 +75,11 @@ class AMoD:
             self.info.missed_demand += leave
             price = self.data.get_price(i, j, t)
             chargeback = leave * self.param.chargeback
-            self.reward += demand * price - retained * self.param.penalty - chargeback
+            penalty = retained * self.param.penalty + chargeback
+            self.reward += demand * price - penalty
+            self.info.penalty += penalty
             self.info.revenue += demand * price
+            self.info.price_base += demand * self.data.get_principal_price(i, j, t)
 
             if int_pax == 0:
                 continue
@@ -133,6 +136,7 @@ class AMoD:
         # use self.time to index the next time step
 
         done = (self.tf == t + 1)  # if the episode is completed
+
         return self, self.reward, done, self.info
 
     def reset(self):

@@ -3,7 +3,7 @@ from enum import Enum
 
 from numpy import mean
 
-LogEntry = Enum('LogEntry', ['value_loss', 'policy_loss', 'gradient', 'reward', 'revenue',
+LogEntry = Enum('LogEntry', ['value_loss', 'policy_loss', 'gradient', 'reward', 'revenue', 'penalty',
                              'served_demand', 'missed_demand',
                              'reb_cost', 'price_point', 'pax_vehicle', 'reb_vehicle', 'idle_vehicle'])
 
@@ -16,20 +16,24 @@ class StepInfo:
         self.missed_demand = 0
         self.operating_cost = 0
         self.revenue = 0
+        self.penalty = 0
         self.reb_cost = 0
         self.pax_vehicle = 0
         self.reb_vehicle = 0
         self.idle_vehicle = 0
+        self.price_base = 0
 
     def reset(self):
         self.served_demand = 0
         self.missed_demand = 0
         self.operating_cost = 0
         self.revenue = 0
+        self.penalty = 0
         self.reb_cost = 0
         self.pax_vehicle = 0
         self.reb_vehicle = 0
         self.idle_vehicle = 0
+        self.price_base = 0
 
 
 def _format(i, d):
@@ -45,6 +49,7 @@ def _format(i, d):
     pv = d(LogEntry.pax_vehicle)
     rv = d(LogEntry.reb_vehicle)
     iv = d(LogEntry.idle_vehicle)
+    pn = d(LogEntry.penalty)
 
     sdr = sd / (sd + md) * 100
     return f"Episode {i + 1} | " \
@@ -56,7 +61,8 @@ def _format(i, d):
            f"ServedDemand: {sdr:.2f}% | " \
            f"Reb. Cost: {rc:.2f} | " \
            f"Pax/Reb/Idle Vehicle: {pv * 100:.2f}%/{rv * 100:.2f}%/{iv * 100:.2f}% | " \
-           f"PricePoint: {pr:.2f}"
+           f"PricePoint: {pr:.2f} | " \
+           f"Penalty: {pn:.2f} | "
 
 
 class LogInfo:
@@ -92,17 +98,20 @@ class LogInfo:
         self.episode_data[LogEntry.served_demand] += info.served_demand
         self.episode_data[LogEntry.missed_demand] += info.missed_demand
         self.episode_data[LogEntry.revenue] += info.revenue
+        self.episode_data[LogEntry.penalty] += info.penalty
         self.episode_data[LogEntry.reb_cost] += info.reb_cost
         self.episode_data[LogEntry.pax_vehicle] += info.pax_vehicle / info.total_acc
         self.episode_data[LogEntry.reb_vehicle] += info.reb_vehicle / info.total_acc
         self.episode_data[LogEntry.idle_vehicle] += info.idle_vehicle / info.total_acc
-        self.episode_data[LogEntry.price_point] += 0 if info.pax_vehicle == 0 else info.revenue / info.pax_vehicle
+        self.episode_data[LogEntry.price_point] += info.price_base
 
     def finish(self, step: int):
+        total_revenue = self.episode_data[LogEntry.revenue]
+        total_vehicle = self.episode_data[LogEntry.price_point]
+        self.episode_data[LogEntry.price_point] = total_revenue / total_vehicle
         self.episode_data[LogEntry.pax_vehicle] /= step
         self.episode_data[LogEntry.reb_vehicle] /= step
         self.episode_data[LogEntry.idle_vehicle] /= step
-        self.episode_data[LogEntry.price_point] /= step
 
     def get_reward(self):
         return self.episode_data[LogEntry.reward]

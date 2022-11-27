@@ -30,7 +30,7 @@ def test_np():
     for i in range(n):
         for j in range(n):
             for k in range(n):
-                obj[i][j][k] = random.random()
+                obj[i, j, k] = random.random()
 
 
 def test_all():
